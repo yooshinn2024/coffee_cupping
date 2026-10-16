@@ -1,0 +1,30 @@
+# 咖啡杯测记录
+#   只在内网用：            docker compose up -d --build
+#   开启 Cloudflare Tunnel：复制 .env.example 为 .env，填入 TUNNEL_TOKEN，再执行同样的命令
+services:
+  app:
+    build: .
+    image: coffee-cupping:latest
+    container_name: coffee-cupping
+    ports:
+      - "${APP_PORT:-3000}:3000"   # 内网访问 http://服务器IP:3000
+    environment:
+      - PUID=${PUID:-1000}         # data 目录文件属主（Debian 上用 `id` 命令查看）
+      - PGID=${PGID:-1000}
+      - TZ=${TZ:-Asia/Tokyo}
+      - BACKUP_KEEP=14             # 自动备份保留天数
+    volumes:
+      - ./data:/app/data           # 数据库与自动备份都在这里
+    restart: unless-stopped
+
+  cloudflared:
+    image: cloudflare/cloudflared:latest
+    container_name: coffee-cupping-tunnel
+    profiles: ["tunnel"]           # 只有 .env 里写了 COMPOSE_PROFILES=tunnel 才会启动
+    command: tunnel --no-autoupdate run
+    environment:
+      - TUNNEL_TOKEN=${TUNNEL_TOKEN:-}
+    depends_on:
+      app:
+        condition: service_healthy
+    restart: unless-stopped
