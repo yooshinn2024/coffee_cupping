@@ -1,9 +1,9 @@
 'use strict';
-/* 多语言文本。数据里保存的是中文“键”（如 '中粗'、'水洗'），显示时通过 v_* 映射翻译。 */
+/* Multilingual dictionary. Stored data uses internal keys and maps via v_*. */
 window.I18N = {
   ja: {
-    /* 导航与全局状态 */
-    brand: '珈琲の記録帖',
+    /* Navigation & Global Status */
+    brand: '珈琲の小時間',
     nav_home: 'ホーム',
     nav_daily: '毎日の記録',
     nav_cupping: 'カッピング',
@@ -21,7 +21,7 @@ window.I18N = {
     timer_done: '時間です！表面を崩してウェットアロマを確認',
     saved_offline: 'サーバーに保存できませんでした。通信状態を確認してください。',
 
-    /* 登录、注册与初始化 */
+    /* Auth & Setup */
     login_h: 'ログイン',
     register_h: '新規登録',
     init_h: '初期設定：管理者アカウント作成',
@@ -40,7 +40,7 @@ window.I18N = {
     goto_login: 'アカウントをお持ちの方はログイン',
     login_to_comment: 'コメントするにはログインしてください',
 
-    /* 首页（社区动态广场） */
+    /* Home / Community Feed */
     home_h: 'みんなの品評・交流広場',
     home_sub: '自分や友だちが共有した「毎日のコーヒー記録」と「カッピング記録」が集まります。記録をクリックしてレーダーチャートを見たりコメントで交流できます。',
     quick_daily: '今日のコーヒーを記録',
@@ -54,7 +54,7 @@ window.I18N = {
     private_badge: '非公開',
     shared_badge: '公開中',
 
-    /* 每日喝咖啡记录 */
+    /* Daily Coffee Log */
     daily_h: '毎日のコーヒー記録',
     daily_sub: '毎日飲む1杯の豆・淹れ方・3つの温度帯での味わいを30秒で記録します（未公開のまま自分用に保存も、ホームへ共有もできます）。',
     btn_new_daily: '＋ 今日のコーヒーを記録する',
@@ -85,7 +85,7 @@ window.I18N = {
     daily_guide_btn: '品評・スコア基準（1〜10点）を見る',
     cup_guide_btn: 'SCAカッピング基準・手順を見る',
 
-    /* Cupping 杯测主页与历史 */
+    /* Cupping Home & History */
     subtitle: '毎回のカッピングを記録して、少しずつテイスティング力を上げよう',
     draft_h: '未完了のカッピングがあります',
     draft_at: '「{step}」まで進行中',
@@ -100,7 +100,7 @@ window.I18N = {
     blind: 'ブラインド',
     confirm_discard: '未完了のカッピングを破棄しますか？',
 
-    /* 杯测参数设置 */
+    /* Cupping Setup */
     setup_h: 'カッピング設定',
     setup_sub: 'ほとんどクリックだけで設定できます。推奨値（★）は入力済みです。',
     overall_h: '今回の全体設定',
@@ -127,7 +127,7 @@ window.I18N = {
     btn_start: 'カッピング開始 →',
     coffee_n: 'コーヒー {n}',
 
-    /* 杯测流程与品评打分 */
+    /* Tasting Workflow & Scoring */
     pour_h: '② 注湯して4分計る',
     pour_hint: '① すべてのカップに約 {temp}°C のお湯を注ぎます（粉が全部浸るよう、水位をそろえて）。<br>② 最後のカップに注ぎ終わったら、下のボタンでタイマー開始。<br>③ 4分間はカップを動かさず、時間になったらウェットアロマへ。<br>タイマー開始後は右上に「注湯から」の経過時間が表示され、温度の目安になります。',
     btn_poured: '注湯した、タイマー開始',
@@ -159,7 +159,7 @@ window.I18N = {
     btn_next: '次へ →',
     btn_finish: '完了して結果を見る',
 
-    /* 杯测结果与雷达图 */
+    /* Cupping Results & Radar */
     result_h: 'カッピング結果',
     not_found: '記録が見つかりません。',
     btn_home: 'ホームへ',
@@ -181,12 +181,12 @@ window.I18N = {
     th_overall: 'おすすめ度',
     by_author: '{name} さんの記録',
 
-    /* 历史对比 */
+    /* Comparison */
     compare_h: '履歴比較',
     compare_sub: '好きなカップを選んで（最大6つ）レーダーを重ねて比較できます。',
     max6: '同時に比較できるのは6カップまでです。',
 
-    /* 品尝交流详情 */
+    /* Shared Details */
     community_h: 'みんなの記録',
     community_sub: '共有されたカッピング記録を見て、コメントで交流できます。自分の記録は結果画面の「共有」ボタンで公開できます。',
     no_shared: 'まだ共有された記録はありません。',
@@ -199,7 +199,7 @@ window.I18N = {
     confirm_del_comment: 'このコメントを削除しますか？',
     mine: '自分',
 
-    /* 设置与管理 */
+    /* Settings & Admin */
     settings_h: '設定',
     account_h: 'アカウント',
     f_display_short: '表示名',
@@ -246,7 +246,7 @@ window.I18N = {
     dbbackup_desc: 'サーバーは data/backups に毎日自動でバックアップします（14日分保持）。今すぐDBファイルを取得することもできます。',
     btn_dl_db: 'DBファイルをダウンロード',
 
-    /* 错误提示 */
+    /* Error Messages */
     err: {
       invalid_credentials: 'ユーザー名またはパスワードが違います。',
       too_many_attempts: '失敗が多すぎます。15分後にもう一度お試しください。',
@@ -265,7 +265,7 @@ window.I18N = {
       generic: 'エラーが発生しました：',
     },
 
-    /* 选项字典与映射 */
+    /* Option Mappings */
     v_methods: {
       '手冲V60': 'ハンドドリップ（円錐 V60）',
       '手冲平底': 'ハンドドリップ（ウェーブ・台形）',
@@ -301,7 +301,7 @@ window.I18N = {
       '焦苦': '成分が出すぎている（過抽出）サインです。次回は「挽き目を1〜2段階粗くする」「湯温を2°C下げる（深煎りなら88°C前後）」を試してみてください。',
     },
 
-    /* 品评指标（雷达图维度） */
+    /* Sensory Attributes (Radar Axes) */
     ind: {
       aroma: { n: '香り', d: '飲んだときに鼻に抜ける香り', a: ['ほとんどない', '中くらい、少し分かる', 'とても豊か'] },
       acid: { n: '酸味', d: '柑橘やリンゴのような明るい爽やかさ（酸っぱさ・渋さではない）', a: ['ほとんどない、平坦', '中くらい、爽やか', 'とても明るく鮮やか'] },
@@ -312,7 +312,7 @@ window.I18N = {
       balance: { n: 'バランス', d: '酸味・甘さ・苦味の調和（どれか一つが突出していないか）', a: ['偏っている・刺々しい', 'ほどよく調和', '丸みがあり完璧な調和'] },
     },
 
-    /* 步骤与阶段 */
+    /* Steps & Temperature Stages */
     steps: { 'dry': '① ドライ', 'pour': '② 注湯・タイマー', 'wet': '③ ウェット', 'hot': '④ 熱 70°C', 'warm': '⑤ 温 50°C', 'room': '⑥ 室温', 'final': '⑦ 総合評価' },
     stage: { 'dry': 'ドライアロマ（粉の香り）', 'wet': 'ウェットアロマ（ブレイク）', 'hot': '熱いうち（約70°C）', 'warm': '温かい（約50°C）', 'room': '室温（約25〜30°C）' },
     stage_short: { 'dry': 'ドライ', 'wet': 'ウェット', 'hot': '熱', 'warm': '温', 'room': '室温' },
@@ -324,7 +324,7 @@ window.I18N = {
       'room': '約25〜30°C（注湯から約35〜40分）。最後の一巡。欠点の風味と甘さがこの温度で最も分かりやすくなります。',
     },
 
-    /* 评分指南 */
+    /* Scoring Guide */
     guide: `<h1>採点ガイド</h1>
       <div class="card"><h2>強さの採点（1〜10）</h2><div class="sub">レーダーの項目は「どれくらいはっきり感じるか」の記録で、「おいしいかどうか」ではありません。好みは最後の星で記録します。</div>{table}</div>
       <div class="card"><h2>流れ（SCAカッピングプロトコルを簡略化）</h2><ol>
@@ -343,7 +343,7 @@ window.I18N = {
   },
 
   zh: {
-    /* 导航与全局状态 */
+    /* Navigation & Global Status */
     brand: '咖啡小记录',
     nav_home: 'Home',
     nav_daily: '每日咖啡',
@@ -362,7 +362,7 @@ window.I18N = {
     timer_done: '时间到！去划开泡沫，闻湿香',
     saved_offline: '无法保存到服务器，请检查网络。',
 
-    /* 登录、注册与初始化 */
+    /* Auth & Setup */
     login_h: '登录',
     register_h: '注册',
     init_h: '首次设置：创建管理员账号',
@@ -381,7 +381,7 @@ window.I18N = {
     goto_login: '已有账号？去登录',
     login_to_comment: '登录后即可参与留言交流',
 
-    /* 首页（社区动态广场） */
+    /* Home / Community Feed */
     home_h: '咖啡品尝交流广场 (Home)',
     home_sub: '这里汇集了你和朋友们公开分享的「每日咖啡记录」与「Cupping 杯测记录」。点开任意记录即可查看雷达图并留言交流。',
     quick_daily: '记一杯今天喝的咖啡',
@@ -395,7 +395,7 @@ window.I18N = {
     private_badge: '私有',
     shared_badge: '已公开',
 
-    /* 每日喝咖啡记录 */
+    /* Daily Coffee Log */
     daily_h: '每日咖啡记录',
     daily_sub: '记录每天喝的每一杯咖啡：豆种、冲泡方法与 3 个温度阶段的品尝感受（默认仅自己可见，也可一键分享到 Home）。',
     btn_new_daily: '＋ 记录今天喝的咖啡',
@@ -426,7 +426,7 @@ window.I18N = {
     daily_guide_btn: '查看每日咖啡品鉴与打分标准（1–10分制）',
     cup_guide_btn: '查看 SCA 杯测标准与流程参考',
 
-    /* Cupping 杯测主页与历史 */
+    /* Cupping Home & History */
     subtitle: '记录每一次杯测，逐步提升品咖啡的能力',
     draft_h: '有一次未完成的杯测',
     draft_at: '进行到「{step}」',
@@ -441,7 +441,7 @@ window.I18N = {
     blind: '盲测',
     confirm_discard: '确定放弃这次未完成的杯测吗？',
 
-    /* 杯测参数设置 */
+    /* Cupping Setup */
     setup_h: '杯测设置',
     setup_sub: '全部点选即可，已为你填好推荐值（★ 为推荐）。',
     overall_h: '本次整体设置',
@@ -468,7 +468,7 @@ window.I18N = {
     btn_start: '开始杯测 →',
     coffee_n: '咖啡 {n}',
 
-    /* 杯测流程与品评打分 */
+    /* Tasting Workflow & Scoring */
     pour_h: '② 注水并计时 4 分钟',
     pour_hint: '① 所有杯子依次注入约 {temp}°C 的热水（水要没过粉，水位一致）。<br>② 注完最后一杯后，点下面按钮开始计时。<br>③ 4 分钟内不要动杯子，到时去闻湿香。<br>计时后，页面右上角会一直显示“注水后”时间，可用来估算温度。',
     btn_poured: '我已注水，开始计时',
@@ -500,7 +500,7 @@ window.I18N = {
     btn_next: '下一步 →',
     btn_finish: '完成并查看结果',
 
-    /* 杯测结果与雷达图 */
+    /* Cupping Results & Radar */
     result_h: '杯测结果',
     not_found: '找不到这条记录。',
     btn_home: '返回首页',
@@ -522,12 +522,12 @@ window.I18N = {
     th_overall: '推荐度',
     by_author: '{name} 的杯测',
 
-    /* 历史对比 */
+    /* Comparison */
     compare_h: '历史对比',
     compare_sub: '勾选任意几杯（最多 6 杯），叠加查看雷达图。',
     max6: '最多同时对比 6 杯',
 
-    /* 品尝交流详情 */
+    /* Shared Details */
     community_h: '品尝交流',
     community_sub: '查看大家分享的杯测记录，留言交流。自己的记录可以在结果页点「分享」公开。',
     no_shared: '还没有人分享记录。',
@@ -540,7 +540,7 @@ window.I18N = {
     confirm_del_comment: '删除这条留言？',
     mine: '我',
 
-    /* 设置与管理 */
+    /* Settings & Admin */
     settings_h: '设置',
     account_h: '账户',
     f_display_short: '昵称',
@@ -587,7 +587,7 @@ window.I18N = {
     dbbackup_desc: '服务器每天自动备份到 data/backups（保留 14 天）。也可以现在下载一份数据库文件。',
     btn_dl_db: '下载数据库文件',
 
-    /* 错误提示 */
+    /* Error Messages */
     err: {
       invalid_credentials: '用户名或密码错误。',
       too_many_attempts: '失败次数太多，请 15 分钟后再试。',
@@ -606,7 +606,7 @@ window.I18N = {
       generic: '出错了：',
     },
 
-    /* 选项字典与映射 */
+    /* Option Mappings */
     v_methods: {
       '手冲V60': '手冲（锥形 V60）',
       '手冲平底': '手冲（蛋糕杯/平底）',
@@ -642,7 +642,7 @@ window.I18N = {
       '焦苦': '这是「过度萃取」的信号。下次建议：将磨豆机调粗 1–2 格，或降低水温 2°C（中深烘建议用 88–90°C）。',
     },
 
-    /* 品评指标（雷达图维度） */
+    /* Sensory Attributes (Radar Axes) */
     ind: {
       aroma: { n: '香气', d: '喝的时候从鼻后闻到的味道', a: ['几乎没有', '中等，能分辨一些', '非常浓郁丰富'] },
       acid: { n: '酸质', d: '像柑橘、苹果的清爽明亮感（不是酸涩）', a: ['几乎没有，平淡', '中等，清爽', '非常明亮强烈'] },
@@ -653,7 +653,7 @@ window.I18N = {
       balance: { n: '平衡度', d: '酸、甜、苦是否和谐融洽，有无某一项突兀刺口', a: ['失衡、味道突兀', '顺口协调', '极其圆润和谐'] },
     },
 
-    /* 步骤与阶段 */
+    /* Steps & Temperature Stages */
     steps: { 'dry': '① 干香', 'pour': '② 注水计时', 'wet': '③ 湿香', 'hot': '④ 热 70°C', 'warm': '⑤ 温 50°C', 'room': '⑥ 室温', 'final': '⑦ 整体评价' },
     stage: { 'dry': '干香', 'wet': '湿香', 'hot': '热（约70°C）', 'warm': '温（约50°C）', 'room': '室温（约25–30°C）' },
     stage_short: { 'dry': '干香', 'wet': '湿香', 'hot': '热', 'warm': '温', 'room': '室温' },
@@ -665,7 +665,7 @@ window.I18N = {
       'room': '约 25–30°C（注水后大约 35–40 分钟）。最后一轮，瑕疵味道和甜感在这时最容易分辨。',
     },
 
-    /* 评分指南 */
+    /* Scoring Guide */
     guide: `<h1>评分指南</h1>
       <div class="card"><h2>强度打分（1–10）</h2><div class="sub">雷达图上的指标记录的是“有多明显”，不是“好不好喝”。好不好喝用最后的整体喜好星级记录。</div>{table}</div>
       <div class="card"><h2>流程（参考 SCA 杯测规范，已简化）</h2><ol>
@@ -684,8 +684,8 @@ window.I18N = {
   },
 
   en: {
-    /* 导航与全局状态 */
-    brand: 'A Little Coffee Note',
+    /* Navigation & Global Status */
+    brand: 'A Little Coffee',
     nav_home: 'Home',
     nav_daily: 'Daily',
     nav_cupping: 'Cupping',
@@ -703,7 +703,7 @@ window.I18N = {
     timer_done: 'Time! Break the crust and smell the wet aroma',
     saved_offline: 'Could not save to the server. Please check your connection.',
 
-    /* 登录、注册与初始化 */
+    /* Auth & Setup */
     login_h: 'Log in',
     register_h: 'Sign up',
     init_h: 'First-time setup: create the admin account',
@@ -722,7 +722,7 @@ window.I18N = {
     goto_login: 'Already have an account? Log in',
     login_to_comment: 'Log in to leave a comment',
 
-    /* 首页（社区动态广场） */
+    /* Home / Community Feed */
     home_h: 'Coffee Tasting Feed (Home)',
     home_sub: 'Browse Daily Brews and Cupping sessions shared by you and your friends. Click any record to view radar charts and leave comments.',
     quick_daily: 'Log Today\'s Coffee',
@@ -736,7 +736,7 @@ window.I18N = {
     private_badge: 'Private',
     shared_badge: 'Shared',
 
-    /* 每日喝咖啡记录 */
+    /* Daily Coffee Log */
     daily_h: 'Daily Coffee Log',
     daily_sub: 'Log your daily cup in 30 seconds: bean info, brew method, and tasting across 3 temperature stages (keep private or share to Home).',
     btn_new_daily: '＋ Log Today\'s Coffee',
@@ -767,7 +767,7 @@ window.I18N = {
     daily_guide_btn: 'View Daily Tasting & 1–10 Scoring Reference',
     cup_guide_btn: 'View SCA Cupping Protocol & Reference',
 
-    /* Cupping 杯测主页与历史 */
+    /* Cupping Home & History */
     subtitle: 'Record every cupping and steadily sharpen your palate',
     draft_h: 'You have an unfinished cupping',
     draft_at: 'At “{step}”',
@@ -782,7 +782,7 @@ window.I18N = {
     blind: 'Blind',
     confirm_discard: 'Discard this unfinished cupping?',
 
-    /* 杯测参数设置 */
+    /* Cupping Setup */
     setup_h: 'Cupping setup',
     setup_sub: 'Just click to choose. Recommended values (★) are pre-filled.',
     overall_h: 'Session settings',
@@ -809,7 +809,7 @@ window.I18N = {
     btn_start: 'Start cupping →',
     coffee_n: 'Coffee {n}',
 
-    /* 杯测流程与品评打分 */
+    /* Tasting Workflow & Scoring */
     pour_h: '② Pour and time 4 minutes',
     pour_hint: '① Pour ~{temp}°C water into every cup (fully wet the grounds, same level in each).<br>② After the last cup, press the button below to start the timer.<br>③ Leave the cups alone for 4 minutes, then go smell the wet aroma.<br>Once started, the time since pouring is shown at the top right to help estimate temperature.',
     btn_poured: 'Poured — start timer',
@@ -841,7 +841,7 @@ window.I18N = {
     btn_next: 'Next →',
     btn_finish: 'Finish & see results',
 
-    /* 杯测结果与雷达图 */
+    /* Cupping Results & Radar */
     result_h: 'Cupping results',
     not_found: 'Record not found.',
     btn_home: 'Home',
@@ -863,12 +863,12 @@ window.I18N = {
     th_overall: 'Rec Score',
     by_author: 'Cupping by {name}',
 
-    /* 历史对比 */
+    /* Comparison */
     compare_h: 'Compare history',
     compare_sub: 'Tick any cups (up to 6) to overlay their radar charts.',
     max6: 'You can compare up to 6 cups at once.',
 
-    /* 品尝交流详情 */
+    /* Shared Details */
     community_h: 'Community',
     community_sub: 'Browse cuppings shared by friends and leave comments. Share your own from its results page.',
     no_shared: 'Nothing shared yet.',
@@ -881,7 +881,7 @@ window.I18N = {
     confirm_del_comment: 'Delete this comment?',
     mine: 'Me',
 
-    /* 设置与管理 */
+    /* Settings & Admin */
     settings_h: 'Settings',
     account_h: 'Account',
     f_display_short: 'Display name',
@@ -928,7 +928,7 @@ window.I18N = {
     dbbackup_desc: 'The server backs up daily to data/backups (14 days kept). You can also download the database now.',
     btn_dl_db: 'Download database',
 
-    /* 错误提示 */
+    /* Error Messages */
     err: {
       invalid_credentials: 'Wrong username or password.',
       too_many_attempts: 'Too many attempts. Try again in 15 minutes.',
@@ -947,7 +947,7 @@ window.I18N = {
       generic: 'Something went wrong: ',
     },
 
-    /* 选项字典与映射 */
+    /* Option Mappings */
     v_methods: {
       '手冲V60': 'Pour-over (V60 Cone)',
       '手冲平底': 'Pour-over (Flat/Kalita)',
@@ -983,7 +983,7 @@ window.I18N = {
       '焦苦': 'Sign of over-extraction. Next time try grinding 1–2 clicks coarser or lowering water temp by 2°C.',
     },
 
-    /* 品评指标（雷达图维度） */
+    /* Sensory Attributes (Radar Axes) */
     ind: {
       aroma: { n: 'Flavor', d: 'Aroma perceived through the nose while drinking', a: ['Barely any', 'Moderate, some notes', 'Rich and intense'] },
       acid: { n: 'Acidity', d: 'Bright, crisp feel like citrus or apple (not sour/astringent)', a: ['Flat, almost none', 'Moderate, crisp', 'Very bright'] },
@@ -994,7 +994,7 @@ window.I18N = {
       balance: { n: 'Balance', d: 'How harmoniously acidity, sweetness, and bitterness work together', a: ['Unbalanced / Sharp', 'Harmonious', 'Round & seamlessly balanced'] },
     },
 
-    /* 步骤与阶段 */
+    /* Steps & Temperature Stages */
     steps: { 'dry': '① Dry', 'pour': '② Pour & timer', 'wet': '③ Wet', 'hot': '④ Hot 70°C', 'warm': '⑤ Warm 50°C', 'room': '⑥ Room', 'final': '⑦ Overall' },
     stage: { 'dry': 'Dry fragrance', 'wet': 'Wet aroma (break)', 'hot': 'Hot (~70°C)', 'warm': 'Warm (~50°C)', 'room': 'Room temp (~25–30°C)' },
     stage_short: { 'dry': 'Dry', 'wet': 'Wet', 'hot': 'Hot', 'warm': 'Warm', 'room': 'Room' },
@@ -1006,7 +1006,7 @@ window.I18N = {
       'room': '~25–30°C (about 35–40 min). Final round — defects and sweetness are easiest to spot at this temperature.',
     },
 
-    /* 评分指南 */
+    /* Scoring Guide */
     guide: `<h1>Scoring guide</h1>
       <div class="card"><h2>Intensity scores (1–10)</h2><div class="sub">Radar attributes record “how noticeable”, not “how good”. How much you like a cup goes into the final star rating.</div>{table}</div>
       <div class="card"><h2>Procedure (simplified from the SCA cupping protocol)</h2><ol>

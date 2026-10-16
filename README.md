@@ -1,67 +1,71 @@
-# 珈琲の記録帖 · 咖啡小记录 · A Little Coffee Note
+# A Little Coffee (珈琲の小時間 · 咖啡小记录)
 
-基于 Node.js 22（内置原生 SQLite）+ Docker 构建的极简主义咖啡品鉴与 SCA 杯测记录服务。支持日常单杯三温区记录、多杯平行 Cupping、1–10 分国际标准感官与回购推荐度评分、多用户邀请制与社区品尝交流（Home）、日/中/英三语切换以及 Cloudflare Tunnel 内网穿透。
+A minimalist, zero-dependency coffee tasting journal and SCA cupping web application built with Node.js 22 (native SQLite) and Docker.
 
----
-
-## 核心功能
-
-1. **三大主栏架构**
-   - **ホーム / Home（品尝交流）**：汇集自己与朋友选择公开分享的「每日咖啡」与「Cupping」记录。支持未登录访客只读浏览（未登录状态下发表人用户名自动使用 `*` 脱敏隐藏，登录后显示完整昵称并可留言互动）。
-   - **毎日の記録 / 每日咖啡 / Daily**：日常喝咖啡 30 秒单页记录。支持最近喝过的豆子一键回填、10 种常见冲泡器具、研磨粗细与粉水比预设、高温（70°C）/ 中温（50°C）/ 室温（35°C）三阶段 1–10 分感官打分、萃取微调建议，以及 **1–10 分推荐度（是否值得回购）**。
-   - **カッピング / Cupping**：遵循 SCA 标准的 3–5 杯平行盲测/明测工作流（含 4 分钟注水倒计时提示音、干香/湿香/三温区评分、多杯同屏雷达对比）。
-2. **极简纸质手账美学 & 日/中/英三语**
-   - 摒弃多余图标与视觉噪音，默认日语（`日本語`），右上角可随时切换 `日本語 | 中文 | EN`。
-   - 每日咖啡与 Cupping 内均按需内嵌可折叠的 **1–10 分制感官评判参考与 SCA 标准流程指南**。
-3. **独立管理后台路由（`/admin`）**
-   - 顶部导航栏不显示管理入口；管理员直接访问 `/admin` 或 `/#admin` 即可生成朋友注册邀请码、管理用户与下载 SQLite 一致性备份。
-4. **附带单文件离线版**
-   - 仓库根目录附带 `cupping_standalone.html`，无需服务器，发给朋友双击即可在本地浏览器离线使用。
+Supports **Daily Coffee Brew Logging** (across 3 temperature stages), **Multi-Cup SCA Comparative Cupping**, a **1–10 International Sensory & Rebuy Recommendation Scale**, **Community Tasting Feed (Home)**, **Japanese / Chinese / English** instant switching, **Cloudflare Tunnel**, and automated **CI/CD via GitHub Actions + GHCR + Watchtower**.
 
 ---
 
-## 默认管理员账号
+## Key Features
 
-容器首次启动会自动初始化管理员账号：
-- **默认登录名**：`admin`
-- **默认密码**：`ineedacupofcoffee`
-- **管理后台地址**：`http://服务器IP:3000/admin`（或绑定域名后的 `https://你的域名/admin`）
-
-> 建议部署后登录并在右上角「设置（設定）」中修改管理员密码。
-
----
-
-## Docker Compose 部署方案（含 Cloudflare Tunnel 接入）
-
-### 方案一：仅在局域网内运行（无需域名 / Tunnel）
-
-在 Debian NAS 或本地机器上执行：
-
-```bash
-git clone https://github.com/yooshinn2024/coffee_cupping.git
-cd coffee_cupping
-docker compose up -d --build
-```
-
-浏览器直接访问：`http://你的NAS内网IP:3000`
+1. **Three Main Sections**
+   - **Home (`ホーム` / `Home`)**: Community tasting feed aggregating shared Daily Brew logs and Cupping sessions from you and your friends. Unauthenticated visitors can browse shared records in read-only mode (author names are partially masked with `*` until logged in).
+   - **Daily (`毎日の記録` / `每日咖啡` / `Daily`)**: Fast 30-second single-page log for your daily cup of coffee. Includes 1-click autofill from recent beans, 10 brew methods, grind & ratio presets, 3 temperature stages (`Hot ~70°C`, `Warm ~50°C`, `Room ~35°C`) rated on a 1–10 scale, automated extraction tuning tips, and a **1–10 Recommendation / Rebuy Score**.
+   - **Cupping (`カッピング` / `Cupping`)**: 3–5 cup comparative blind/open SCA cupping workflow with a 4-minute steep timer, audio alert, 5-stage aroma evolution bar chart, and multi-cup radar overlays.
+2. **Minimalist Editorial Design & Tri-Lingual UI**
+   - Clean, distraction-free typography with zero decorative icon clutter.
+   - Instant language toggle (`日本語 | 中文 | EN`), defaulting to Japanese (`日本語`).
+   - Built-in collapsible reference guides inside both **Daily** and **Cupping** sections.
+3. **Hidden Admin URI (`/admin`)**
+   - No admin link is exposed in the public navigation bar. Administrators access user/invite management and SQLite database snapshot downloads directly via `/admin` or `/#admin`.
+4. **Standalone Single-File Offline Edition Included**
+   - `cupping_standalone.html` is included in the repository root and runs 100% offline in any browser using `localStorage`.
 
 ---
 
-### 方案二：通过 Cloudflare Tunnel 接入公网（推荐 NAS 部署）
+## Default Administrator Account
 
-`docker-compose.yml` 已内置 `cloudflared` 容器编排，与 `app` 处于同一 Docker 内部网络，**无需在路由器上做端口映射，也无需额外配置 Nginx 反代**。
+On first startup, the server automatically seeds the default administrator account:
+- **Username**: `admin`
+- **Password**: `ineedacupofcoffee`
+- **Admin Console URL**: `http://<server-ip>:3000/admin` (or `https://<your-domain>/admin`)
 
-#### 第一步：在 Cloudflare Zero Trust 获取 Tunnel Token
-1. 登录 [Cloudflare Zero Trust 控制台](https://one.dash.cloudflare.com/)。
-2. 进入 **Networks** $\rightarrow$ **Tunnels** $\rightarrow$ 点击 **Create a tunnel**，选择 **Cloudflared**，命名为 `coffee-note`。
-3. 在安装命令页面，复制 `--token` 后面那一长串以 `eyJ...` 开头的字符串（这就是你的 `TUNNEL_TOKEN`）。
-4. 进入下一步 **Public Hostname（公共主机名）** 配置：
-   - **Subdomain（子域名）**：例如 `coffee`
-   - **Domain（域名）**：选择你在 Cloudflare 托管的域名（如 `example.com`）
-   - **Service Type（服务类型）**：选择 **`HTTP`**
-   - **URL**：填写 **`app:3000`**（注意：因为 `cloudflared` 和 `app` 在同一个 `docker-compose.yml` 网络里，这里直接填容器服务名 `app:3000` 最稳定！）
+> You can change the administrator password anytime under **Settings** in the top-right menu, or override `ADMIN_USER` and `ADMIN_PASS` via `.env`.
 
-#### 第二步：在 Debian NAS 上配置 `.env` 并启动
+---
+
+## CI/CD Architecture & Automated NAS Deployment
+
+This repository includes an automated CI/CD pipeline ([`.github/workflows/docker-publish.yml`](.github/workflows/docker-publish.yml)):
+
+1. **Continuous Integration (GitHub Actions $\rightarrow$ GHCR)**:
+   - Every `git push` to `main` (or tag `v*`) automatically triggers GitHub Actions.
+   - Builds a multi-architecture Docker image (`linux/amd64` and `linux/arm64`) and publishes it to GitHub Container Registry:
+     `ghcr.io/yooshinn2024/coffee_cupping:latest`
+2. **Continuous Deployment (Home Debian NAS)**:
+   - Your Debian NAS runs `docker-compose.yml` with the `watchtower` service (`autodeploy` profile).
+   - Watchtower monitors `ghcr.io/yooshinn2024/coffee_cupping:latest`, automatically pulls new images as soon as a GitHub Actions build completes, and gracefully restarts the `coffee-cupping` container while preserving `./data`.
+
+---
+
+## Deployment on Debian NAS (Docker Compose + Cloudflare Tunnel)
+
+### Step 1: Make the GHCR Package Public (One-Time Setup on GitHub)
+So your NAS can pull `ghcr.io/yooshinn2024/coffee_cupping:latest` without needing a GitHub token:
+1. Open your GitHub repository $\rightarrow$ click **Packages** on the right sidebar (`coffee_cupping`).
+2. Click **Package settings** (bottom right) $\rightarrow$ scroll to **Danger Zone** $\rightarrow$ **Change visibility** $\rightarrow$ select **Public** (or run `docker login ghcr.io` on your NAS if you prefer keeping the image private).
+
+### Step 2: Create a Cloudflare Tunnel Token
+1. Go to [Cloudflare Zero Trust Dashboard](https://one.dash.cloudflare.com/) $\rightarrow$ **Networks** $\rightarrow$ **Tunnels**.
+2. Click **Create a tunnel** $\rightarrow$ select **Cloudflared** $\rightarrow$ name it (e.g., `coffee-note`).
+3. Copy the token string (`eyJ...`) shown after `--token`.
+4. Under **Public Hostname**, add a hostname:
+   - **Subdomain**: e.g., `coffee`
+   - **Domain**: your Cloudflare domain
+   - **Service Type**: `HTTP`
+   - **URL**: `app:3000` (uses the internal Docker network directly)
+
+### Step 3: Start on Your Debian NAS
 ```bash
 git clone https://github.com/yooshinn2024/coffee_cupping.git
 cd coffee_cupping
@@ -69,31 +73,28 @@ cp .env.example .env
 nano .env
 ```
 
-在 `.env` 中填入你的 Token：
+Edit `.env`:
 ```ini
-TUNNEL_TOKEN=eyJhIjoi...粘贴你的Cloudflare_Tunnel_Token...
-COMPOSE_PROFILES=tunnel
+TUNNEL_TOKEN=eyJhIjoi...your_cloudflare_tunnel_token...
+COMPOSE_PROFILES=tunnel,autodeploy
 
-# 可选：修改默认管理员初始密码
 ADMIN_USER=admin
 ADMIN_PASS=ineedacupofcoffee
 
-# 可选：NAS 文件属主 UID/GID（在 Debian 终端输入 id 查看，通常为 1000）
 PUID=1000
 PGID=1000
 TZ=Asia/Tokyo
 ```
 
-保存后一行命令启动主服务与 Tunnel 隧道：
+Start the stack (pulls the prebuilt image from GHCR and starts the app, Cloudflare Tunnel, and Watchtower auto-updater):
 ```bash
-docker compose up -d --build
+docker compose pull
+docker compose up -d
 ```
 
-查看运行状态：
+### Manual Update Trigger (Anytime)
+If you want to pull and deploy a new image immediately without waiting for Watchtower's 5-minute polling interval:
 ```bash
-docker compose ps
+cd coffee_cupping
+docker compose pull && docker compose up -d
 ```
-此时：
-- 你在家里内网可通过 `http://NAS内网IP:3000` 访问；
-- 你和朋友在外网可通过 `https://coffee.你的域名.com` 直接 HTTPS 安全访问！
-- 登录管理员后访问 `https://coffee.你的域名.com/admin` 即可点击「生成邀请码」，把注册链接发给朋友。

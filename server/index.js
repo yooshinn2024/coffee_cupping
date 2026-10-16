@@ -1,5 +1,5 @@
 'use strict';
-// 咖啡杯测记录 - API 服务器（无第三方依赖，仅用 Node.js 22 内置模块）
+// A Little Coffee - HTTP API Server (zero third-party dependencies, built on Node.js 22)
 const http = require('node:http');
 const crypto = require('node:crypto');
 const path = require('node:path');
@@ -80,7 +80,7 @@ if (!q.userByName.get(defUser)) {
   console.log('Initialized default admin account:', defUser);
 }
 
-/* ========= 工具 ========= */
+/* ========= Utilities ========= */
 class HttpError extends Error { constructor(status, code) { super(code); this.status = status; this.code = code; } }
 const fail = (status, code) => { throw new HttpError(status, code); };
 const sha256 = s => crypto.createHash('sha256').update(s).digest('hex');
@@ -143,7 +143,7 @@ function validateNewUser(body) {
   return { username, password, display, lang };
 }
 
-/* 登录失败次数限制：同一 IP 15 分钟内最多 10 次失败 */
+/* Rate limiting: max 10 failed login attempts per IP within 15 minutes */
 const loginFails = new Map();
 function checkRate(ip) {
   const r = loginFails.get(ip);
@@ -155,7 +155,7 @@ function noteFail(ip) {
   else r.count++;
 }
 
-/* 共享记录只返回摘要，减少列表数据量 */
+/* Return lightweight summary for shared list items */
 function summarize(data) {
   return {
     type: data.type === 'daily' ? 'daily' : 'cupping',
@@ -175,7 +175,7 @@ function summarize(data) {
 }
 function canSee(c, user) { return c && ((user && c.user_id === user.id) || (c.shared && !c.author_disabled)); }
 
-/* ========= 路由 ========= */
+/* ========= Routes ========= */
 const routes = [];
 function route(method, pattern, opts, handler) {
   if (typeof opts === 'function') { handler = opts; opts = {}; }
@@ -187,7 +187,7 @@ function route(method, pattern, opts, handler) {
 route('GET', '/api/health', () => ({ ok: true }));
 route('GET', '/api/status', () => ({ needsFirstRun: !q.hasAdmin.get() }));
 
-// 首次运行：创建管理员。只允许从内网访问（经 Cloudflare 进来的请求会带 cf-connecting-ip 头）
+// First-run admin setup (restricted to LAN; requests via Cloudflare include cf-connecting-ip)
 route('POST', '/api/init', ({ req, body }) => {
   if (q.hasAdmin.get()) fail(403, 'already_initialized');
   if (req.headers['cf-connecting-ip']) fail(403, 'setup_lan_only');
@@ -248,7 +248,7 @@ route('POST', '/api/password', { auth: true }, ({ req, user, body }) => {
   return { ok: true };
 });
 
-// 草稿（进行中的杯测，换设备也能继续）
+// Active cupping draft (persisted across devices)
 route('GET', '/api/draft', { auth: true }, ({ user }) => {
   const d = q.getDraft.get(user.id);
   return { draft: d ? JSON.parse(d.data) : null };
@@ -260,7 +260,7 @@ route('POST', '/api/draft', { auth: true }, ({ user, body }) => {
 });
 route('DELETE', '/api/draft', { auth: true }, ({ user }) => { q.delDraft.run(user.id); return { ok: true }; });
 
-// 自己的杯测记录
+// Personal tasting & cupping records
 function cleanCupping(body) {
   if (!body || typeof body !== 'object' || !Array.isArray(body.cups) || !body.cups.length || body.cups.length > 6) fail(400, 'bad_request');
   const data = { ...body };
@@ -288,7 +288,7 @@ route('POST', '/api/cuppings/:id/share', { auth: true }, ({ user, params, body }
   if (q.shareCupping.run(on ? 1 : 0, on ? Date.now() : null, params.id, user.id).changes !== 1) fail(404, 'not_found');
   return { ok: true, shared: on };
 });
-// 导入（兼容单机版导出的 JSON）
+// Import records (compatible with standalone JSON exports)
 route('POST', '/api/import', { auth: true }, ({ user, body }) => {
   const list = Array.isArray(body) ? body : (body && Array.isArray(body.sessions) ? body.sessions : null);
   if (!list) fail(400, 'bad_request');
@@ -300,7 +300,7 @@ route('POST', '/api/import', { auth: true }, ({ user, body }) => {
       try { data = cleanCupping(item); } catch (e) { skipped++; continue; }
       let id = typeof item.id === 'string' && /^[\w-]{4,40}$/.test(item.id) ? item.id : newId();
       const ex = q.cuppingExists.get(id);
-      if (ex && ex.user_id === user.id) { skipped++; continue; } // 已导入过
+      if (ex && ex.user_id === user.id) { skipped++; continue; } // Already imported
       if (ex) id = newId();
       const ts = Number(item.finishedAt) || Date.now();
       q.insertCupping.run(id, user.id, data.date, JSON.stringify(data), ts, Date.now());
@@ -311,7 +311,7 @@ route('POST', '/api/import', { auth: true }, ({ user, body }) => {
   return { ok: true, imported, skipped };
 });
 
-// 品尝交流（公开分享内容支持未登录只读浏览，未登录时隐藏部分用户名；可通过环境变量 REQUIRE_LOGIN_FOR_HOME=1 改为强制登录）
+// Community tasting feed (read-only for guests with masked usernames; set REQUIRE_LOGIN_FOR_HOME=1 to require login)
 const REQUIRE_LOGIN_HOME = process.env.REQUIRE_LOGIN_FOR_HOME === '1';
 function maskName(name, isLoggedIn) {
   const s = String(name || '').trim();
@@ -360,7 +360,7 @@ route('DELETE', '/api/comments/:id', { auth: true }, ({ user, params }) => {
   return { ok: true };
 });
 
-// 管理员
+// Admin endpoints
 route('GET', '/api/admin/overview', { admin: true }, () => ({ users: q.listUsers.all(), invites: q.listInvites.all() }));
 route('POST', '/api/admin/invites', { admin: true }, ({ user }) => {
   const code = common.randomCode(8);
@@ -383,7 +383,7 @@ route('POST', '/api/admin/users/:id/reset_pw', { admin: true }, ({ params, body 
   return { ok: true };
 });
 route('GET', '/api/admin/backup', { admin: true }, ({ res }) => {
-  // VACUUM INTO 生成一致的快照（WAL 模式下直接复制 .db 文件可能缺数据）
+  // Use VACUUM INTO for a consistent SQLite snapshot under WAL mode
   const tmp = path.join(common.BACKUP_DIR, `.download-${newId()}.db`);
   db.exec(`VACUUM INTO '${tmp.replace(/'/g, "''")}'`);
   const name = `cupping-${new Date().toISOString().slice(0, 10)}.db`;
@@ -391,10 +391,10 @@ route('GET', '/api/admin/backup', { admin: true }, ({ res }) => {
   const s = fs.createReadStream(tmp);
   s.pipe(res);
   s.on('close', () => fs.unlink(tmp, () => {}));
-  return null; // 已自行响应
+  return null; // Response already streamed
 });
 
-/* ========= 静态文件 ========= */
+/* ========= Static File Server ========= */
 const MIME = {
   '.html': 'text/html; charset=utf-8', '.js': 'text/javascript; charset=utf-8', '.css': 'text/css; charset=utf-8',
   '.svg': 'image/svg+xml', '.png': 'image/png', '.ico': 'image/x-icon', '.json': 'application/json', '.webmanifest': 'application/manifest+json',
@@ -412,7 +412,7 @@ function serveStatic(req, res, urlPath) {
   });
 }
 
-/* ========= HTTP 服务器 ========= */
+/* ========= HTTP Server ========= */
 const server = http.createServer(async (req, res) => {
   res.setHeader('X-Content-Type-Options', 'nosniff');
   res.setHeader('Referrer-Policy', 'same-origin');
@@ -435,7 +435,7 @@ const server = http.createServer(async (req, res) => {
 
     let body = {};
     if (req.method !== 'GET') {
-      // 简单的 CSRF 防护：跨站来源的写请求一律拒绝
+      // Basic CSRF protection: reject cross-origin state-changing requests
       const origin = req.headers.origin;
       if (origin) { try { if (new URL(origin).host !== req.headers.host) fail(403, 'forbidden'); } catch (e) { fail(403, 'forbidden'); } }
       body = await readBody(req);
@@ -461,7 +461,7 @@ const server = http.createServer(async (req, res) => {
   }
 });
 
-/* ========= 定时任务：自动备份 + 清理过期登录 ========= */
+/* ========= Scheduled Tasks: Daily Backup & Session Cleanup ========= */
 function autoBackup() {
   try {
     const day = new Date().toISOString().slice(0, 10);

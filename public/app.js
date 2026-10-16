@@ -1,11 +1,11 @@
 'use strict';
-/* ========= 常量 ========= */
+/* ========= Constants ========= */
 const COLORS = ['#2c2825', '#3d6352', '#9e5a28', '#3b668c', '#8c3b4a', '#6e6a63'];
 const STAGE_COLORS = { hot: '#9e3a26', warm: '#b5852b', room: '#3b668c' };
-const SCALE_MAX = 10; // 国际标准 1–10 分制
-const IND_KEYS = ['aroma', 'acid', 'sweet', 'bitter', 'body', 'after']; // Cupping 雷达图 6 轴
-const DAILY_IND_KEYS = ['aroma', 'acid', 'sweet', 'bitter', 'after', 'balance']; // 每日咖啡雷达图 6 轴
-// 数据中保存的值（中文键，兼容旧数据），显示时通过 i18n 字典翻译
+const SCALE_MAX = 10; // International 1-10 sensory & recommendation scale
+const IND_KEYS = ['aroma', 'acid', 'sweet', 'bitter', 'body', 'after']; // 6 radar axes for SCA Cupping
+const DAILY_IND_KEYS = ['aroma', 'acid', 'sweet', 'bitter', 'after', 'balance']; // 6 radar axes for Daily Coffee Log
+// Canonical stored keys (translated on display via i18n dictionary)
 const AROMA_TAGS = ['花香', '水果', '坚果巧克力', '焦糖烘烤', '香料', '泥土木质', '其他'];
 const DEFECTS = ['发酵/酸臭', '涩（像浓茶）', '烟焦味', '纸板/陈旧', '土腥', '无明显瑕疵'];
 const ORIGINS = ['埃塞俄比亚', '肯尼亚', '巴拿马', '哥伦比亚', '巴西', '危地马拉', '哥斯达黎加', '印尼', '云南', '拼配', '其他'];
@@ -29,7 +29,7 @@ const HTML_LANG = { ja: 'ja', zh: 'zh-CN', en: 'en' };
 const LOCALE = { ja: 'ja-JP', zh: 'zh-CN', en: 'en-US' };
 const PUBLIC_VIEWS = ['home', 'shared', 'init', 'login', 'register'];
 
-/* ========= 工具 ========= */
+/* ========= Helpers ========= */
 const $ = s => document.querySelector(s);
 const esc = s => String(s == null ? '' : s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 function getPath(o, p) { return p.split('.').reduce((a, k) => (a == null ? a : a[k]), o); }
@@ -40,9 +40,9 @@ const mmss = ms => { const s = Math.max(0, Math.floor(ms / 1000)); return String
 const today = () => new Date().toLocaleDateString('sv-SE');
 const isDaily = s => s && s.type === 'daily';
 
-/* ========= 多语言 ========= */
+/* ========= Internationalization ========= */
 let lang = localStorage.getItem('cupping.lang');
-if (!window.I18N[lang]) lang = 'ja'; // 默认日语
+if (!window.I18N[lang]) lang = 'ja'; // Default language: Japanese
 function t(key, vars) {
   let s = getPath(window.I18N[lang], key);
   if (s == null) s = getPath(window.I18N.ja, key);
@@ -63,10 +63,10 @@ function recFull(n) {
 const cupName = (c, i) => (c && c.name && c.name.trim() ? c.name.trim() : t('coffee_n', { n: (i || 0) + 1 }));
 const fmtTime = ts => new Date(ts).toLocaleString(LOCALE[lang], { year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' });
 
-/* ========= 状态 ========= */
-let sessions = [];     // 自己的全部记录（含 type: 'daily' 与 'cupping'）
-let draft = null;      // 进行中的多杯 Cupping 草稿
-let dailyDraft = null; // 正在填写的每日咖啡草稿
+/* ========= Application State ========= */
+let sessions = [];     // User records (includes both daily and cupping types)
+let draft = null;      // In-progress multi-cup cupping draft
+let dailyDraft = null; // In-progress daily coffee draft
 try { dailyDraft = JSON.parse(localStorage.getItem('cupping.dailyDraft') || 'null'); } catch (e) { dailyDraft = null; }
 
 const state = {
@@ -82,7 +82,7 @@ async function api(method, url, body) {
   if (body !== undefined) { opt.headers['Content-Type'] = 'application/json'; opt.body = JSON.stringify(body); }
   const res = await fetch(url, opt);
   let data = null;
-  try { data = await res.json(); } catch (e) { /* 非 JSON */ }
+  try { data = await res.json(); } catch (e) { /* Non-JSON response */ }
   if (!res.ok) {
     const err = new Error((data && data.error) || 'http_' + res.status);
     err.status = res.status; err.code = data && data.error;
@@ -105,14 +105,14 @@ function showFormMsg(form, text, ok) {
 }
 function setBanner(on) { const b = $('#banner'); if (b) { b.hidden = !on; b.textContent = on ? t('saved_offline') : ''; } }
 
-/* 草稿：改动后 0.6 秒自动保存到服务器 */
+/* Debounced auto-save for active cupping draft (600ms) */
 let draftTimer = null;
 function persist() { clearTimeout(draftTimer); if (draft) draftTimer = setTimeout(flushDraft, 600); }
 function persistDaily() {
   try {
     if (dailyDraft) localStorage.setItem('cupping.dailyDraft', JSON.stringify(dailyDraft));
     else localStorage.removeItem('cupping.dailyDraft');
-  } catch (e) { /* 忽略 */ }
+  } catch (e) { /* Ignore */ }
 }
 async function flushDraft() {
   clearTimeout(draftTimer); draftTimer = null;
@@ -127,7 +127,7 @@ window.addEventListener('pagehide', () => {
   }
 });
 
-/* ========= 数据结构 ========= */
+/* ========= Data Models ========= */
 function emptyStage(isTaste, keys = IND_KEYS) {
   const o = { aroma: null, tags: [], note: '' };
   if (isTaste) { keys.forEach(k => { o[k] = null; }); o.like = null; }
@@ -196,7 +196,7 @@ function recentBeans() {
   return out;
 }
 
-/* ========= 小组件 ========= */
+/* ========= UI Primitives ========= */
 function chips(path, options, cur, opts = {}) {
   const tgt = opts.target ? ` data-target="${opts.target}"` : '';
   return '<div class="chips">' + options.map(o => {
@@ -221,7 +221,7 @@ function indTable(withMeaning, keys = IND_KEYS) {
     }).join('') + '</table>';
 }
 
-/* ========= 雷达图（1–10 国际标准刻度） ========= */
+/* ========= SVG Radar Chart (1-10 Scale) ========= */
 function radar(series, keys = IND_KEYS) {
   const cx = 180, cy = 150, R = 100, n = keys.length;
   const pt = (i, v) => {
@@ -259,11 +259,11 @@ function mainVals(cup, daily = false) {
   });
 }
 
-/* ========= 视图 ========= */
+/* ========= Views ========= */
 const views = {};
 views.loading = () => `<div class="card sub">${t('loading')}</div>`;
 
-/* --- 登录 / 注册 / 首次设置 --- */
+/* --- Auth Views --- */
 const authBox = (title, inner) => `<div class="authbox card"><h1>${title}</h1>${inner}</div>`;
 const field = (label, name, type = 'text', extra = '') => `<label class="f">${label}</label><input type="${type}" name="${name}" ${extra}>`;
 views.login = () => authBox(t('login_h'), `<form data-form="login">
@@ -286,7 +286,7 @@ views.init = () => authBox(t('init_h'), `<div class="hint">${t('init_desc')}</di
     ${field(t('f_pw2'), 'password2', 'password', 'autocomplete="new-password" required minlength="6"')}
     <div class="formmsg"></div><button class="btn big full" type="submit">${t('btn_init')}</button></form>`);
 
-/* --- 公共卡片标签渲染 --- */
+/* --- Shared Card Helpers --- */
 function sessionTags(cups) {
   return (cups || []).map((c, i) => `<span class="tag">${esc(cupName(c, i))}${c.origin ? ' · ' + esc(L('v_origins', c.origin)) : ''}${c.roast ? ' · ' + esc(L('v_roasts', c.roast)) : ''}${c.star || (c.final && c.final.star) ? ' ' + stars(c.star || c.final.star) : ''}</span>`).join('');
 }
@@ -307,7 +307,7 @@ function diagTipsBox(diagList) {
     `</div>`;
 }
 
-/* ========= 第一栏：Home（品尝交流广场，支持未登录只读浏览） ========= */
+/* ========= Tab 1: Home (Community Feed, Read-Only for Guests) ========= */
 views.home = () => {
   let h = `<h1>${t('home_h')}</h1><div class="sub">${t('home_sub')}</div>`;
   h += `<div class="quick-bar">
@@ -352,7 +352,7 @@ views.home = () => {
   return h;
 };
 
-/* ========= 第二栏：每日咖啡 (Daily Coffee Log) ========= */
+/* ========= Tab 2: Daily Coffee Log ========= */
 function dailyGuideDetails() {
   return `<details class="card"><summary>${t('daily_guide_btn')}</summary>
     <div style="margin-top:10px">
@@ -405,7 +405,7 @@ views.dailyNew = () => {
 
   h += dailyGuideDetails();
 
-  // 1. 咖啡豆与冲泡方法
+  // 1. Bean & Brew Recipe
   h += `<div class="card"><h2>${t('sec_bean_brew')}</h2>`;
   if (recents.length) {
     h += `<div class="recent-box"><div class="sub" style="margin-bottom:4px">${t('recent_beans')}</div><div class="chips">` +
@@ -438,7 +438,7 @@ views.dailyNew = () => {
     </div>
   </div>`;
 
-  // 2. 三个温度阶段的品尝感觉（1–10 分）
+  // 2. Tasting Across 3 Temperature Stages (1-10)
   h += `<div class="card"><h2>${t('sec_tasting_3temp')}</h2><div class="sub">${t('tasting_3temp_sub')}</div>
     <div class="temp-grid">`;
   ['hot', 'warm', 'room'].forEach(st => {
@@ -459,7 +459,7 @@ views.dailyNew = () => {
   });
   h += `</div></div>`;
 
-  // 3. 整体感受、诊断与保存
+  // 3. Overall Impression, Diagnosis & Save
   h += `<div class="card"><h2>${t('sec_daily_final')}</h2>
     <label class="f">${t('f_tags')}</label>${chips('cups.0.tags', opts(AROMA_TAGS, 'v_tags'), c.tags, { multi: true, target: 'daily' })}
     <label class="f">${t('f_body_level')}</label>${chips('cups.0.bodyLevel', opts(BODY_LEVELS, 'v_body'), c.bodyLevel, { target: 'daily' })}
@@ -481,7 +481,7 @@ views.dailyNew = () => {
   return h;
 };
 
-/* ========= 第三栏：Cupping（多杯专业杯测） ========= */
+/* ========= Tab 3: Multi-Cup SCA Cupping ========= */
 function cupGuideDetails() {
   return `<details class="card"><summary>${t('cup_guide_btn')}</summary>
     <div style="margin-top:10px">${views.guide()}</div>
@@ -512,7 +512,7 @@ views.cuppingHome = () => {
   return h;
 };
 
-/* --- Cupping 参数设置 --- */
+/* --- Cupping Setup --- */
 views.setup = () => {
   const d = draft;
   const names = [...new Set(sessions.flatMap(s => (s.cups || []).map(c => c.name)).filter(Boolean))];
@@ -543,7 +543,7 @@ views.setup = () => {
   return h;
 };
 
-/* --- 杯测进行中 --- */
+/* --- Active Cupping Session --- */
 function stepBar() {
   return '<div class="steps">' + STEP_KEYS.map((k, i) =>
     `<button class="step${i === draft.step ? ' on' : i < draft.step ? ' done' : ''}" data-act="goto" data-val="${i}">${t('steps.' + k)}</button>`).join('') + '</div>';
@@ -597,7 +597,7 @@ views.cupping = () => {
   return h;
 };
 
-/* --- 结果（自己的记录和共享记录共用，支持 Daily 与 Cupping） --- */
+/* --- Result View (Daily & Cupping) --- */
 function dailyResultBody(s) {
   const c = (s.cups && s.cups[0]) || emptyCup();
   const m = state.resultMode === 'temp' ? 'temp' : 'main';
@@ -698,7 +698,7 @@ views.result = () => {
   return h + resultBody(s);
 };
 
-/* --- 历史对比 --- */
+/* --- Radar Comparison View --- */
 views.compare = () => {
   const dailyMode = state.cmpType === 'daily';
   const keys = dailyMode ? DAILY_IND_KEYS : IND_KEYS;
@@ -719,7 +719,7 @@ views.compare = () => {
   return h;
 };
 
-/* --- 共享详情 + 评论（支持未登录只读查看） --- */
+/* --- Shared Record Detail & Comments --- */
 views.shared = () => {
   const d = state.shared;
   if (!d) return `<p>${t('not_found')}</p>`;
@@ -747,10 +747,10 @@ views.shared = () => {
   return h + '</div>';
 };
 
-/* --- 指南内容生成 --- */
+/* --- Reference Guide --- */
 views.guide = () => t('guide').replace('{table}', indTable(true));
 
-/* --- 设置（账户 + 导出导入） --- */
+/* --- Account Settings & Backup --- */
 views.settings = () => {
   const u = state.user;
   return `<h1>${t('settings_h')}</h1>
@@ -769,7 +769,7 @@ views.settings = () => {
     <div class="sub" style="margin-top:8px">${t('import_note')}</div></div>`;
 };
 
-/* --- 管理（仅通过 /admin 或 /#admin URI 进入，不在顶部导航显示） --- */
+/* --- Admin Console (accessible via /admin or /#admin) --- */
 const inviteLink = code => `${location.origin}/#invite=${code}`;
 views.admin = () => {
   const a = state.admin || { users: [], invites: [] };
@@ -795,7 +795,7 @@ views.admin = () => {
   return h;
 };
 
-/* ========= 渲染 ========= */
+/* ========= Rendering & Navigation ========= */
 function activeNavTab() {
   const v = state.view;
   if (v === 'shared') return 'home';
@@ -888,11 +888,11 @@ async function onLoggedIn(user) {
 async function copyText(text) {
   try {
     if (navigator.clipboard && window.isSecureContext) { await navigator.clipboard.writeText(text); alert(t('copied') + '\n' + text); return; }
-  } catch (e) { /* 回退 */ }
+  } catch (e) { /* Fallback */ }
   prompt(t('copy_prompt'), text);
 }
 
-/* ========= 交互 ========= */
+/* ========= Event Actions ========= */
 const actions = {
   nav: el => go(el.dataset.view),
   homeFilter: el => { state.homeFilter = el.dataset.val; render(); },
@@ -1130,7 +1130,7 @@ document.addEventListener('input', e => {
   if (el.dataset.bind === 'dose' || el.dataset.bind === 'water') updateRatio();
 });
 
-/* ========= 计时器 ========= */
+/* ========= Steep Timer & Audio Beep ========= */
 function beep() {
   try {
     const ctx = new (window.AudioContext || window.webkitAudioContext)();
@@ -1140,7 +1140,7 @@ function beep() {
       g.gain.setValueAtTime(0.2, ctx.currentTime + dt); g.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + dt + 0.3);
       o.start(ctx.currentTime + dt); o.stop(ctx.currentTime + dt + 0.3);
     });
-  } catch (e) { /* 忽略 */ }
+  } catch (e) { /* Ignore */ }
 }
 function tick() {
   const el = $('#elapsed'), cd = $('#countdown');
@@ -1159,7 +1159,7 @@ function tick() {
 }
 setInterval(tick, 500);
 
-/* ========= 启动与 URI 路由（支持 /admin 与 /#admin） ========= */
+/* ========= Bootstrap & URI Routing ========= */
 function checkUrlIntent() {
   const m = /^#invite=([A-Za-z0-9]+)/.exec(location.hash);
   if (m) state.inviteCode = m[1].toUpperCase();
@@ -1189,7 +1189,7 @@ async function boot() {
       if (e.status === 401) {
         if (state.inviteCode) return go('register');
         if (state.wantAdmin) return go('login');
-        return go('home'); // 未登录默认浏览公开的品尝交流 Home
+        return go('home'); // Guests land on the public Home feed by default
       }
       throw e;
     }

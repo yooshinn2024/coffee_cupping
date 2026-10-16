@@ -1,15 +1,15 @@
-# 珈琲の記録帖 · 咖啡小记录 (A Little Coffee Note)
-#   仅内网运行：            docker compose up -d --build
-#   开启 Cloudflare Tunnel：cp .env.example .env，填入 TUNNEL_TOKEN 后执行 docker compose up -d --build
+# A Little Coffee (珈琲の小時間 / 咖啡小记录)
+# - Pull & run prebuilt CI/CD image:  docker compose pull && docker compose up -d
+# - Local build & run:                docker compose up -d --build
 services:
   app:
+    image: ${APP_IMAGE:-ghcr.io/yooshinn2024/coffee_cupping:latest}
     build: .
-    image: coffee-cupping:latest
     container_name: coffee-cupping
     ports:
-      - "${APP_PORT:-3000}:3000"   # 内网访问 http://服务器IP:3000
+      - "${APP_PORT:-3000}:3000"
     environment:
-      - PUID=${PUID:-1000}         # data 目录文件属主（Debian 上用 `id` 命令查看）
+      - PUID=${PUID:-1000}
       - PGID=${PGID:-1000}
       - TZ=${TZ:-Asia/Tokyo}
       - BACKUP_KEEP=${BACKUP_KEEP:-14}
@@ -17,17 +17,33 @@ services:
       - ADMIN_PASS=${ADMIN_PASS:-ineedacupofcoffee}
       - REQUIRE_LOGIN_FOR_HOME=${REQUIRE_LOGIN_FOR_HOME:-0}
     volumes:
-      - ./data:/app/data           # SQLite 数据库与每日自动备份都在这里
+      - ./data:/app/data
+    labels:
+      - "com.centurylinklabs.watchtower.enable=true"
     restart: unless-stopped
 
   cloudflared:
     image: cloudflare/cloudflared:latest
     container_name: coffee-cupping-tunnel
-    profiles: ["tunnel"]           # 当 .env 中包含 COMPOSE_PROFILES=tunnel 时自动随 app 启动
+    profiles: ["tunnel"]
     command: tunnel --no-autoupdate run
     environment:
       - TUNNEL_TOKEN=${TUNNEL_TOKEN:-}
     depends_on:
       app:
         condition: service_healthy
+    restart: unless-stopped
+
+  watchtower:
+    image: containrrr/watchtower:latest
+    container_name: coffee-cupping-updater
+    profiles: ["autodeploy"]
+    command: --label-enable --cleanup --interval ${WATCHTOWER_INTERVAL:-300}
+    environment:
+      - TZ=${TZ:-Asia/Tokyo}
+      - WATCHTOWER_HTTP_API_UPDATE=${WATCHTOWER_HTTP_API_UPDATE:-false}
+      - WATCHTOWER_HTTP_API_TOKEN=${WATCHTOWER_HTTP_API_TOKEN:-}
+      - WATCHTOWER_HTTP_API_PERIODIC_POLLS=true
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
     restart: unless-stopped

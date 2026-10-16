@@ -1,5 +1,5 @@
 'use strict';
-// 服务器与命令行工具共用的函数
+// Shared database and cryptography utilities
 const fs = require('node:fs');
 const path = require('node:path');
 const crypto = require('node:crypto');
@@ -8,7 +8,7 @@ const { DatabaseSync } = require('node:sqlite');
 const DATA_DIR = path.resolve(process.env.DATA_DIR || path.join(__dirname, '..', 'data'));
 const BACKUP_DIR = path.join(DATA_DIR, 'backups');
 
-/** 以 root 启动时：把数据目录交给 PUID/PGID，然后降权运行（避免 NAS 上权限问题） */
+/** When started as root, assign ownership of DATA_DIR to PUID:PGID and drop privileges */
 function dropPrivileges() {
   fs.mkdirSync(BACKUP_DIR, { recursive: true });
   if (typeof process.getuid !== 'function' || process.getuid() !== 0) return;
@@ -87,7 +87,7 @@ function checkPw(pw, stored) {
   const c = crypto.scryptSync(pw, Buffer.from(s, 'hex'), hb.length);
   return crypto.timingSafeEqual(c, hb);
 }
-/** 生成易读的随机串（去掉 0/O/1/I 等易混字符） */
+/** Generate human-readable random invite code (excluding ambiguous characters like 0/O/1/I) */
 function randomCode(len) {
   const A = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
   let s = '';
