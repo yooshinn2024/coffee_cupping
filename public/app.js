@@ -52,7 +52,14 @@ function t(key, vars) {
 }
 const L = (map, v) => (v ? (window.I18N[lang][map] && window.I18N[lang][map][v]) || (window.I18N.ja[map] && window.I18N.ja[map][v]) || v : '');
 const indName = k => t('ind.' + k + '.n');
-const stars = n => (n ? '★'.repeat(n) : '');
+const stars = n => (n ? t('rec_badge', { n }) : '');
+function recFull(n) {
+  if (!n) return `<span class="sub">${t('no_star')}</span>`;
+  const idx = n <= 3 ? 0 : n <= 6 ? 1 : n <= 8 ? 2 : 3;
+  const tiers = t('rec_tiers');
+  const label = Array.isArray(tiers) ? tiers[idx] : '';
+  return `<b>${n} / 10</b>${label ? ` · <span class="sub">${esc(label)}</span>` : ''}`;
+}
 const cupName = (c, i) => (c && c.name && c.name.trim() ? c.name.trim() : t('coffee_n', { n: (i || 0) + 1 }));
 const fmtTime = ts => new Date(ts).toLocaleString(LOCALE[lang], { year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' });
 
@@ -459,7 +466,8 @@ views.dailyNew = () => {
     <label class="f">${t('f_diag')}</label>${chips('cups.0.diag', opts(DIAG_TAGS, 'v_diag'), c.diag, { multi: true, target: 'daily' })}
     ${diagTipsBox(c.diag)}
     <label class="f">${t('f_star')}</label>
-    <div class="stars">${[1, 2, 3, 4, 5].map(n => `<button type="button" class="${(c.final.star || 0) >= n ? 'on' : ''}" data-act="pick" data-num data-target="daily" data-path="cups.0.final.star" data-val="${n}">★</button>`).join('')}</div>
+    <div class="sub" style="margin-bottom:4px">${t('f_star_d')}</div>
+    ${scale('cups.0.final.star', c.final.star, 'daily')}
     <label class="f">${t('f_summary')}</label>
     <textarea data-bind="cups.0.final.note" data-target="daily" placeholder="${esc(t('summary_ph'))}">${esc(c.final.note)}</textarea>
     <div class="row spread" style="margin-top:16px">
@@ -555,7 +563,7 @@ views.cupping = () => {
     h += `<h1>${t('final_h')}</h1><div class="sub">${t('final_sub')}</div><div class="grid" style="margin-top:12px">`;
     draft.cups.forEach((c, i) => {
       h += `<div class="card cupcard" style="border-top-color:${COLORS[i]}">${cupTitle(c, i)}
-        <label class="f">${t('f_star')}</label><div class="stars">${[1, 2, 3, 4, 5].map(n => `<button class="${(c.final.star || 0) >= n ? 'on' : ''}" data-act="pick" data-num data-path="cups.${i}.final.star" data-val="${n}">★</button>`).join('')}</div>
+        <label class="f">${t('f_star')}</label><div class="sub" style="margin-bottom:4px">${t('f_star_d')}</div>${scale(`cups.${i}.final.star`, c.final.star)}
         <label class="f">${t('f_defects')}</label>${chips(`cups.${i}.final.defects`, opts(DEFECTS, 'v_defects'), c.final.defects, { multi: true })}
         <label class="f">${t('f_summary')}</label><textarea data-bind="cups.${i}.final.note" placeholder="${esc(t('summary_ph'))}">${esc(c.final.note)}</textarea></div>`;
     });
@@ -616,7 +624,7 @@ function dailyResultBody(s) {
     h += `<div style="margin-top:10px">` + stNotes.map(st => `<div class="sub"><b>${t('temp_' + st)}：</b>${esc(c.s[st].note)}</div>`).join('') + `</div>`;
   }
   h += `<h3>${t('overall')}</h3>
-    <div>${c.final && c.final.star ? '<span style="font-size:18px">' + stars(c.final.star) + '</span><span style="color:#dedad0;font-size:18px">' + '★'.repeat(5 - c.final.star) + '</span>' : `<span class="sub">${t('no_star')}</span>`}</div>
+    <div>${recFull(c.final && c.final.star)}</div>
     <div style="margin-top:6px">
       ${c.bodyLevel ? `<span class="tag">${esc(L('v_body', c.bodyLevel))}</span>` : ''}
       ${(c.tags || []).map(tg => `<span class="tag">${esc(L('v_tags', tg))}</span>`).join('')}
@@ -642,7 +650,7 @@ function cupCard(c, i, mode) {
   }
   const keys = ['dry', 'wet', 'hot', 'warm', 'room'];
   h += `<h3>${t('aroma_evo')}</h3><div class="bars">${keys.map(k => { const v = c.s[k].aroma; return `<div><span style="height:${(v || 0) * 5}px"></span>${v == null ? '–' : v}<br>${t('stage_short.' + k)}</div>`; }).join('')}</div>`;
-  h += `<h3>${t('overall')}</h3><div>${c.final.star ? '<span style="font-size:18px">' + stars(c.final.star) + '</span><span style="color:#dedad0;font-size:18px">' + '★'.repeat(5 - c.final.star) + '</span>' : `<span class="sub">${t('no_star')}</span>`}</div>`;
+  h += `<h3>${t('overall')}</h3><div>${recFull(c.final && c.final.star)}</div>`;
   h += (c.final.defects || []).map(d => `<span class="tag${d === '无明显瑕疵' ? '' : ' bad'}">${esc(L('v_defects', d))}</span>`).join('');
   if (c.final.note) h += `<div style="margin-top:6px">“${esc(c.final.note)}”</div>`;
   const tags = [...new Set(['dry', 'wet'].flatMap(k => c.s[k].tags || []))];

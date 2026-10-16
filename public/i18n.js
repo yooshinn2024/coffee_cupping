@@ -3,7 +3,7 @@
 window.I18N = {
   ja: {
     /* 导航与全局状态 */
-    brand: 'Coffee Tasting',
+    brand: '珈琲の記録帖',
     nav_home: 'ホーム',
     nav_daily: '毎日の記録',
     nav_cupping: 'カッピング',
@@ -136,7 +136,10 @@ window.I18N = {
     final_h: '⑦ 総合評価',
     final_sub: '各カップの「好み」を星で評価します。上の「強さ」の点数とは別で、ここは「どれくらい好きか」です。',
     cup_no: '{n}番カップ',
-    f_star: '総合的な好み',
+    f_star: 'おすすめ度・リピート意欲（1〜10点）',
+    f_star_d: '1〜3 リピなし · 4〜6 普通 · 7〜8 また買いたい · 9〜10 常備したい',
+    rec_badge: '推奨 {n}/10',
+    rec_tiers: ['リピなし', '普通・一度で十分', 'また買いたい（推奨）', '常備したい（大推薦）'],
     f_defects: '気になる欠点はありましたか？（複数選択可）',
     f_summary: 'ひとことメモ（任意）',
     summary_ph: '例：紅茶のよう、後半に少し渋み',
@@ -171,11 +174,11 @@ window.I18N = {
     tab_cmp: 'カップ比較',
     radar_note: 'レーダーの数値：香り＝ドライ／ウェット／3回のテイスティングの平均。その他＝熱・温・室温の3段階の平均。未入力の項目は除外。',
     aroma_evo: '香りの変化',
-    overall: '総合',
-    no_star: '未評価',
+    overall: 'おすすめ度・全体の印象',
+    no_star: 'おすすめ度未入力',
     smelled: '感じた香り：',
     th_cup: 'カップ',
-    th_overall: '総合',
+    th_overall: 'おすすめ度',
     by_author: '{name} さんの記録',
 
     /* 历史对比 */
@@ -341,7 +344,7 @@ window.I18N = {
 
   zh: {
     /* 导航与全局状态 */
-    brand: '咖啡品鉴记录',
+    brand: '咖啡小记录',
     nav_home: 'Home',
     nav_daily: '每日咖啡',
     nav_cupping: 'Cupping',
@@ -474,7 +477,10 @@ window.I18N = {
     final_h: '⑦ 整体评价',
     final_sub: '每杯给一个整体喜好分，和上面的“强度”打分不同：这里是“我有多喜欢它”。',
     cup_no: '{n} 号杯',
-    f_star: '整体喜好',
+    f_star: '推荐度 · 是否值得再次回购（1–10分）',
+    f_star_d: '1–3 不考虑回购 · 4–6 尚可 · 7–8 值得回购 · 9–10 惊艳必囤',
+    rec_badge: '推荐 {n}/10',
+    rec_tiers: ['不考虑回购', '尚可尝试', '值得再次回购', '惊艳必囤'],
     f_defects: '有瑕疵感觉吗？（可多选）',
     f_summary: '一句话总结（可选）',
     summary_ph: '例如：像红茶，后段有点涩',
@@ -509,11 +515,11 @@ window.I18N = {
     tab_cmp: '多杯对比',
     radar_note: '雷达图数值：香气 = 干香/湿香/三个品尝阶段的平均；其余指标 = 热/温/室温三个阶段的平均。未打分的项不计入。',
     aroma_evo: '香气演变',
-    overall: '整体',
-    no_star: '未评星',
+    overall: '推荐度与整体评价',
+    no_star: '未填推荐度',
     smelled: '闻到：',
     th_cup: '杯',
-    th_overall: '整体',
+    th_overall: '推荐度',
     by_author: '{name} 的杯测',
 
     /* 历史对比 */
@@ -679,7 +685,7 @@ window.I18N = {
 
   en: {
     /* 导航与全局状态 */
-    brand: 'Coffee Tasting',
+    brand: 'A Little Coffee Note',
     nav_home: 'Home',
     nav_daily: 'Daily',
     nav_cupping: 'Cupping',
@@ -812,7 +818,10 @@ window.I18N = {
     final_h: '⑦ Overall',
     final_sub: 'Give each cup an overall preference rating. Unlike the intensity scores above, this is “how much I like it”.',
     cup_no: 'Cup {n}',
-    f_star: 'Overall preference',
+    f_star: 'Recommendation & Rebuy Score (1–10)',
+    f_star_d: '1–3 Skip · 4–6 Decent · 7–8 Worth rebuying · 9–10 Must-rebuy favorite',
+    rec_badge: 'Rec {n}/10',
+    rec_tiers: ['Would not rebuy', 'Decent / Try once', 'Worth rebuying', 'Must-rebuy favorite'],
     f_defects: 'Any defects? (select all that apply)',
     f_summary: 'One-line summary (optional)',
     summary_ph: 'e.g. Like black tea, slightly astringent finish',
@@ -847,11 +856,11 @@ window.I18N = {
     tab_cmp: 'Compare cups',
     radar_note: 'Radar values: Flavor = average of dry / wet / three tasting rounds; others = average of hot / warm / room. Unscored items are excluded.',
     aroma_evo: 'Aroma over time',
-    overall: 'Overall',
-    no_star: 'Not rated',
+    overall: 'Recommendation & Overall Notes',
+    no_star: 'No recommendation score',
     smelled: 'Aromas: ',
     th_cup: 'Cup',
-    th_overall: 'Overall',
+    th_overall: 'Rec Score',
     by_author: 'Cupping by {name}',
 
     /* 历史对比 */

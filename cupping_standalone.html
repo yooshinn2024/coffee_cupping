@@ -3,8 +3,8 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>カッピングノート</title>
-<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><circle cx='16' cy='16' r='12' fill='%231c1917'/></svg>">
+<title>珈琲の記録帖</title>
+<link rel="icon" href="data:,">
 <style>
 :root{
   --bg:#f7f6f2; --card:#ffffff; --brown:#2c2825; --dark:#1c1917; --accent:#5c4938;
@@ -142,7 +142,7 @@ code.small{font-size:11px;word-break:break-all}
 window.I18N = {
   ja: {
     /* 导航与全局状态 */
-    brand: 'Coffee Tasting',
+    brand: '珈琲の記録帖',
     nav_home: 'ホーム',
     nav_daily: '毎日の記録',
     nav_cupping: 'カッピング',
@@ -275,7 +275,10 @@ window.I18N = {
     final_h: '⑦ 総合評価',
     final_sub: '各カップの「好み」を星で評価します。上の「強さ」の点数とは別で、ここは「どれくらい好きか」です。',
     cup_no: '{n}番カップ',
-    f_star: '総合的な好み',
+    f_star: 'おすすめ度・リピート意欲（1〜10点）',
+    f_star_d: '1〜3 リピなし · 4〜6 普通 · 7〜8 また買いたい · 9〜10 常備したい',
+    rec_badge: '推奨 {n}/10',
+    rec_tiers: ['リピなし', '普通・一度で十分', 'また買いたい（推奨）', '常備したい（大推薦）'],
     f_defects: '気になる欠点はありましたか？（複数選択可）',
     f_summary: 'ひとことメモ（任意）',
     summary_ph: '例：紅茶のよう、後半に少し渋み',
@@ -310,11 +313,11 @@ window.I18N = {
     tab_cmp: 'カップ比較',
     radar_note: 'レーダーの数値：香り＝ドライ／ウェット／3回のテイスティングの平均。その他＝熱・温・室温の3段階の平均。未入力の項目は除外。',
     aroma_evo: '香りの変化',
-    overall: '総合',
-    no_star: '未評価',
+    overall: 'おすすめ度・全体の印象',
+    no_star: 'おすすめ度未入力',
     smelled: '感じた香り：',
     th_cup: 'カップ',
-    th_overall: '総合',
+    th_overall: 'おすすめ度',
     by_author: '{name} さんの記録',
 
     /* 历史对比 */
@@ -480,7 +483,7 @@ window.I18N = {
 
   zh: {
     /* 导航与全局状态 */
-    brand: '咖啡品鉴记录',
+    brand: '咖啡小记录',
     nav_home: 'Home',
     nav_daily: '每日咖啡',
     nav_cupping: 'Cupping',
@@ -613,7 +616,10 @@ window.I18N = {
     final_h: '⑦ 整体评价',
     final_sub: '每杯给一个整体喜好分，和上面的“强度”打分不同：这里是“我有多喜欢它”。',
     cup_no: '{n} 号杯',
-    f_star: '整体喜好',
+    f_star: '推荐度 · 是否值得再次回购（1–10分）',
+    f_star_d: '1–3 不考虑回购 · 4–6 尚可 · 7–8 值得回购 · 9–10 惊艳必囤',
+    rec_badge: '推荐 {n}/10',
+    rec_tiers: ['不考虑回购', '尚可尝试', '值得再次回购', '惊艳必囤'],
     f_defects: '有瑕疵感觉吗？（可多选）',
     f_summary: '一句话总结（可选）',
     summary_ph: '例如：像红茶，后段有点涩',
@@ -648,11 +654,11 @@ window.I18N = {
     tab_cmp: '多杯对比',
     radar_note: '雷达图数值：香气 = 干香/湿香/三个品尝阶段的平均；其余指标 = 热/温/室温三个阶段的平均。未打分的项不计入。',
     aroma_evo: '香气演变',
-    overall: '整体',
-    no_star: '未评星',
+    overall: '推荐度与整体评价',
+    no_star: '未填推荐度',
     smelled: '闻到：',
     th_cup: '杯',
-    th_overall: '整体',
+    th_overall: '推荐度',
     by_author: '{name} 的杯测',
 
     /* 历史对比 */
@@ -818,7 +824,7 @@ window.I18N = {
 
   en: {
     /* 导航与全局状态 */
-    brand: 'Coffee Tasting',
+    brand: 'A Little Coffee Note',
     nav_home: 'Home',
     nav_daily: 'Daily',
     nav_cupping: 'Cupping',
@@ -951,7 +957,10 @@ window.I18N = {
     final_h: '⑦ Overall',
     final_sub: 'Give each cup an overall preference rating. Unlike the intensity scores above, this is “how much I like it”.',
     cup_no: 'Cup {n}',
-    f_star: 'Overall preference',
+    f_star: 'Recommendation & Rebuy Score (1–10)',
+    f_star_d: '1–3 Skip · 4–6 Decent · 7–8 Worth rebuying · 9–10 Must-rebuy favorite',
+    rec_badge: 'Rec {n}/10',
+    rec_tiers: ['Would not rebuy', 'Decent / Try once', 'Worth rebuying', 'Must-rebuy favorite'],
     f_defects: 'Any defects? (select all that apply)',
     f_summary: 'One-line summary (optional)',
     summary_ph: 'e.g. Like black tea, slightly astringent finish',
@@ -986,11 +995,11 @@ window.I18N = {
     tab_cmp: 'Compare cups',
     radar_note: 'Radar values: Flavor = average of dry / wet / three tasting rounds; others = average of hot / warm / room. Unscored items are excluded.',
     aroma_evo: 'Aroma over time',
-    overall: 'Overall',
-    no_star: 'Not rated',
+    overall: 'Recommendation & Overall Notes',
+    no_star: 'No recommendation score',
     smelled: 'Aromas: ',
     th_cup: 'Cup',
-    th_overall: 'Overall',
+    th_overall: 'Rec Score',
     by_author: 'Cupping by {name}',
 
     /* 历史对比 */
@@ -1215,7 +1224,14 @@ function t(key, vars) {
 }
 const L = (map, v) => (v ? (window.I18N[lang][map] && window.I18N[lang][map][v]) || (window.I18N.ja[map] && window.I18N.ja[map][v]) || v : '');
 const indName = k => t('ind.' + k + '.n');
-const stars = n => (n ? '★'.repeat(n) : '');
+const stars = n => (n ? t('rec_badge', { n }) : '');
+function recFull(n) {
+  if (!n) return `<span class="sub">${t('no_star')}</span>`;
+  const idx = n <= 3 ? 0 : n <= 6 ? 1 : n <= 8 ? 2 : 3;
+  const tiers = t('rec_tiers');
+  const label = Array.isArray(tiers) ? tiers[idx] : '';
+  return `<b>${n} / 10</b>${label ? ` · <span class="sub">${esc(label)}</span>` : ''}`;
+}
 const cupName = (c, i) => (c && c.name && c.name.trim() ? c.name.trim() : t('coffee_n', { n: (i || 0) + 1 }));
 
 /* ========= 存储与状态 ========= */
@@ -1530,7 +1546,8 @@ views.dailyNew = () => {
     <label class="f">${t('f_diag')}</label>${chips('cups.0.diag', opts(DIAG_TAGS, 'v_diag'), c.diag, { multi: true, target: 'daily' })}
     ${diagTipsBox(c.diag)}
     <label class="f">${t('f_star')}</label>
-    <div class="stars">${[1, 2, 3, 4, 5].map(n => `<button type="button" class="${(c.final.star || 0) >= n ? 'on' : ''}" data-act="pick" data-num data-target="daily" data-path="cups.0.final.star" data-val="${n}">★</button>`).join('')}</div>
+    <div class="sub" style="margin-bottom:4px">${t('f_star_d')}</div>
+    ${scale('cups.0.final.star', c.final.star, 'daily')}
     <label class="f">${t('f_summary')}</label>
     <textarea data-bind="cups.0.final.note" data-target="daily" placeholder="${esc(t('summary_ph'))}">${esc(c.final.note)}</textarea>
     <div class="row spread" style="margin-top:16px">
@@ -1619,7 +1636,7 @@ views.cupping = () => {
     h += `<h1>${t('final_h')}</h1><div class="sub">${t('final_sub')}</div><div class="grid" style="margin-top:12px">`;
     draft.cups.forEach((c, i) => {
       h += `<div class="card cupcard" style="border-top-color:${COLORS[i]}">${cupTitle(c, i)}
-        <label class="f">${t('f_star')}</label><div class="stars">${[1, 2, 3, 4, 5].map(n => `<button class="${(c.final.star || 0) >= n ? 'on' : ''}" data-act="pick" data-num data-path="cups.${i}.final.star" data-val="${n}">★</button>`).join('')}</div>
+        <label class="f">${t('f_star')}</label><div class="sub" style="margin-bottom:4px">${t('f_star_d')}</div>${scale(`cups.${i}.final.star`, c.final.star)}
         <label class="f">${t('f_defects')}</label>${chips(`cups.${i}.final.defects`, opts(DEFECTS, 'v_defects'), c.final.defects, { multi: true })}
         <label class="f">${t('f_summary')}</label><textarea data-bind="cups.${i}.final.note" placeholder="${esc(t('summary_ph'))}">${esc(c.final.note)}</textarea></div>`;
     });
@@ -1680,7 +1697,7 @@ function dailyResultBody(s) {
     h += `<div style="margin-top:10px">` + stNotes.map(st => `<div class="sub"><b>${t('temp_' + st)}：</b>${esc(c.s[st].note)}</div>`).join('') + `</div>`;
   }
   h += `<h3>${t('overall')}</h3>
-    <div>${c.final && c.final.star ? '<span style="font-size:18px">' + stars(c.final.star) + '</span><span style="color:#dedad0;font-size:18px">' + '★'.repeat(5 - c.final.star) + '</span>' : `<span class="sub">${t('no_star')}</span>`}</div>
+    <div>${recFull(c.final && c.final.star)}</div>
     <div style="margin-top:6px">
       ${c.bodyLevel ? `<span class="tag">${esc(L('v_body', c.bodyLevel))}</span>` : ''}
       ${(c.tags || []).map(tg => `<span class="tag">${esc(L('v_tags', tg))}</span>`).join('')}
@@ -1706,7 +1723,7 @@ function cupCard(c, i, mode) {
   }
   const keys = ['dry', 'wet', 'hot', 'warm', 'room'];
   h += `<h3>${t('aroma_evo')}</h3><div class="bars">${keys.map(k => { const v = c.s[k].aroma; return `<div><span style="height:${(v || 0) * 5}px"></span>${v == null ? '–' : v}<br>${t('stage_short.' + k)}</div>`; }).join('')}</div>`;
-  h += `<h3>${t('overall')}</h3><div>${c.final.star ? '<span style="font-size:18px">' + stars(c.final.star) + '</span><span style="color:#dedad0;font-size:18px">' + '★'.repeat(5 - c.final.star) + '</span>' : `<span class="sub">${t('no_star')}</span>`}</div>`;
+  h += `<h3>${t('overall')}</h3><div>${recFull(c.final && c.final.star)}</div>`;
   h += (c.final.defects || []).map(d => `<span class="tag${d === '无明显瑕疵' ? '' : ' bad'}">${esc(L('v_defects', d))}</span>`).join('');
   if (c.final.note) h += `<div style="margin-top:6px">“${esc(c.final.note)}”</div>`;
   const tags = [...new Set(['dry', 'wet'].flatMap(k => c.s[k].tags || []))];
