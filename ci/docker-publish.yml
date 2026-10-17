@@ -58,7 +58,11 @@ jobs:
           cache-to: type=gha,mode=max
 
       - name: Trigger NAS Watchtower webhook (optional)
-        if: ${{ secrets.DEPLOY_WEBHOOK_URL != '' && secrets.DEPLOY_WEBHOOK_TOKEN != '' }}
+        env:
+          WEBHOOK_URL: ${{ secrets.DEPLOY_WEBHOOK_URL }}
+          WEBHOOK_TOKEN: ${{ secrets.DEPLOY_WEBHOOK_TOKEN }}
         run: |
-          curl -fsSL -X POST "${{ secrets.DEPLOY_WEBHOOK_URL }}/v1/update" \
-            -H "Authorization: Bearer ${{ secrets.DEPLOY_WEBHOOK_TOKEN }}"
+          if [ -n "$WEBHOOK_URL" ] && [ -n "$WEBHOOK_TOKEN" ]; then
+            curl -fsSL -X POST "${WEBHOOK_URL}/v1/update" \
+              -H "Authorization: Bearer ${WEBHOOK_TOKEN}"
+          fi
