@@ -41,6 +41,7 @@ services:
     command: --label-enable --cleanup --interval ${WATCHTOWER_INTERVAL:-300}
     environment:
       - TZ=${TZ:-Asia/Tokyo}
+      - DOCKER_API_VERSION=${DOCKER_API_VERSION:-1.44}
       - WATCHTOWER_HTTP_API_UPDATE=${WATCHTOWER_HTTP_API_UPDATE:-false}
       - WATCHTOWER_HTTP_API_TOKEN=${WATCHTOWER_HTTP_API_TOKEN:-}
       - WATCHTOWER_HTTP_API_PERIODIC_POLLS=true
