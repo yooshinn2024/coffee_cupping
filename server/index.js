@@ -11,6 +11,7 @@ const db = common.openDb();
 
 const PORT = Number(process.env.PORT || 3000);
 const PUBLIC_DIR = path.join(__dirname, '..', 'public');
+const PKG_VERSION = JSON.parse(fs.readFileSync(path.join(__dirname, '..', 'package.json'), 'utf8')).version || '1.0.0';
 const COOKIE = 'cupping_sess';
 const SESSION_MS = 30 * 86400 * 1000;
 const BACKUP_KEEP = Number(process.env.BACKUP_KEEP || 14);
@@ -184,8 +185,8 @@ function route(method, pattern, opts, handler) {
   routes.push({ method, re, keys, opts, handler });
 }
 
-route('GET', '/api/health', () => ({ ok: true }));
-route('GET', '/api/status', () => ({ needsFirstRun: !q.hasAdmin.get() }));
+route('GET', '/api/health', () => ({ ok: true, version: PKG_VERSION }));
+route('GET', '/api/status', () => ({ needsFirstRun: !q.hasAdmin.get(), version: PKG_VERSION }));
 
 // First-run admin setup (restricted to LAN; requests via Cloudflare include cf-connecting-ip)
 route('POST', '/api/init', ({ req, body }) => {

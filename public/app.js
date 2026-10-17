@@ -835,6 +835,8 @@ function render() {
   renderTopbar();
   const y = window.scrollY;
   $('#app').innerHTML = state.loading ? views.loading() : views[state.view]();
+  const foot = $('#foot');
+  if (foot) foot.textContent = t('brand') + (state.version ? ' · v' + state.version : '');
   if (state.view === 'setup' || state.view === 'dailyNew') updateRatio();
   tick();
   window.scrollTo(0, y);
@@ -1181,6 +1183,7 @@ async function boot() {
   try {
     const st = await api('GET', '/api/status');
     state.needsFirstRun = !!st.needsFirstRun;
+    state.version = st.version || '';
     if (st.needsFirstRun) return go('init');
     try {
       const me = await api('GET', '/api/me');

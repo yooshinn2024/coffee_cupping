@@ -121,4 +121,5 @@ code.small{font-size:11px;word-break:break-all}
 .ind.compact .head{display:flex;justify-content:space-between;align-items:baseline;gap:8px}
 .tipbox{background:#f5f4f0;border-left:2px solid var(--dark);padding:10px 14px;margin-top:10px;font-size:13px}
 .recent-box{background:#faf9f6;border:1px solid var(--line);border-radius:4px;padding:8px 12px;margin-bottom:12px}
+.site-foot{text-align:center;color:var(--muted);font-size:11px;letter-spacing:.04em;padding:20px 12px 28px}
 @media(max-width:600px){main{padding:14px 12px}.topbar{padding:0 12px;gap:10px}.big-timer{font-size:48px}}
