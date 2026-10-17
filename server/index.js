@@ -263,7 +263,7 @@ route('DELETE', '/api/draft', { auth: true }, ({ user }) => { q.delDraft.run(use
 
 // Personal tasting & cupping records
 function cleanCupping(body) {
-  if (!body || typeof body !== 'object' || !Array.isArray(body.cups) || !body.cups.length || body.cups.length > 6) fail(400, 'bad_request');
+  if (!body || typeof body !== 'object' || !Array.isArray(body.cups) || !body.cups.length || body.cups.length > 20) fail(400, 'bad_request');
   const data = { ...body };
   delete data.id; delete data.shared; delete data.author; delete data.mine;
   data.date = isDate(body.date) ? body.date : new Date().toISOString().slice(0, 10);
@@ -363,8 +363,20 @@ route('DELETE', '/api/comments/:id', { auth: true }, ({ user, params }) => {
 
 // Admin endpoints
 route('GET', '/api/admin/overview', { admin: true }, () => ({ users: q.listUsers.all(), invites: q.listInvites.all() }));
-route('POST', '/api/admin/invites', { admin: true }, ({ user }) => {
-  const code = common.randomCode(8);
+route('POST', '/api/admin/invites', { admin: true }, ({ user, body }) => {
+  const custom = body && typeof body.code === 'string' ? body.code.trim().toUpperCase() : '';
+  let code = '';
+  if (custom) {
+    if (!/^[A-Z0-9_-]{3,32}$/.test(custom)) fail(400, 'invalid_invite_format');
+    if (q.getInvite.get(custom)) fail(400, 'invite_taken');
+    code = custom;
+  } else {
+    for (let i = 0; i < 10; i++) {
+      const cand = common.randomCode(6);
+      if (!q.getInvite.get(cand)) { code = cand; break; }
+    }
+    if (!code) code = common.randomCode(8);
+  }
   q.createInvite.run(code, user.id, Date.now());
   return { ok: true, code };
 });

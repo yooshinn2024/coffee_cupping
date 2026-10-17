@@ -87,11 +87,11 @@ function checkPw(pw, stored) {
   const c = crypto.scryptSync(pw, Buffer.from(s, 'hex'), hb.length);
   return crypto.timingSafeEqual(c, hb);
 }
-/** Generate human-readable random invite code (excluding ambiguous characters like 0/O/1/I) */
-function randomCode(len) {
-  const A = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+/** Generate a random numeric invite code (default: 6 digits) */
+function randomCode(len = 6) {
+  const digits = '0123456789';
   let s = '';
-  for (let i = 0; i < len; i++) s += A[crypto.randomInt(A.length)];
+  for (let i = 0; i < len; i++) s += digits[crypto.randomInt(digits.length)];
   return s;
 }
 

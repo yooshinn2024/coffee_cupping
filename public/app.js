@@ -1,7 +1,8 @@
 'use strict';
 /* ========= Constants ========= */
-const COLORS = ['#2c2825', '#3d6352', '#9e5a28', '#3b668c', '#8c3b4a', '#6e6a63'];
-const STAGE_COLORS = { hot: '#9e3a26', warm: '#b5852b', room: '#3b668c' };
+const COLORS = ['#6d3212', '#2e6b4e', '#2b5b84', '#b5651d', '#7a3b69', '#121212', '#3d7a7a', '#8c3b4a', '#5c6b28', '#6e6a63'];
+const cupColor = i => COLORS[i % COLORS.length];
+const STAGE_COLORS = { hot: '#9e3a26', warm: '#b5852b', room: '#2b5b84' };
 const SCALE_MAX = 10; // International 1-10 sensory & recommendation scale
 const IND_KEYS = ['aroma', 'acid', 'sweet', 'bitter', 'body', 'after']; // 6 radar axes for SCA Cupping
 const DAILY_IND_KEYS = ['aroma', 'acid', 'sweet', 'bitter', 'after', 'balance']; // 6 radar axes for Daily Coffee Log
@@ -521,7 +522,12 @@ views.setup = () => {
   <datalist id="names">${names.map(n => `<option value="${esc(n)}">`).join('')}</datalist>
   <div class="card"><h2>${t('overall_h')}</h2>
     <label class="f">${t('f_date')}</label><input type="date" value="${esc(d.date)}" data-bind="date" style="max-width:200px">
-    <label class="f">${t('f_cupCount')}</label>${chips('cupCount', [3, 4, 5].map(n => ({ v: n, l: t('n_cups', { n }) })), d.cupCount, { num: true })}
+    <label class="f">${t('f_cupCount')}</label>
+    <div class="row" style="gap:10px;margin:4px 0 8px">
+      ${chips('cupCount', [3, 4, 5].map(n => ({ v: n, l: t('n_cups', { n }) })), d.cupCount, { num: true })}
+      <span class="sub">${t('custom_cups')}</span>
+      <input type="number" min="1" max="20" step="1" class="small" value="${esc(d.cupCount)}" data-act="customCupCount">
+    </div>
     <label class="f">${t('f_grind')}</label>${chips('grind', opts(GRINDS, 'v_grinds'), d.grind, { rec: '中粗' })}
     <input type="text" placeholder="${esc(t('grind_note_ph'))}" value="${esc(d.grindNote)}" data-bind="grindNote">
     <label class="f">${t('f_ratio')} <span id="ratio" class="sub"></span></label>
@@ -532,7 +538,7 @@ views.setup = () => {
     <label class="f">${t('f_blind')}</label>${chips('blind', [{ v: 'false', l: t('blind_off') }, { v: 'true', l: t('blind_on') }], String(d.blind), { bool: true })}
   </div>`;
   d.cups.forEach((c, i) => {
-    h += `<div class="card cupcard" style="border-top-color:${COLORS[i]}"><div class="cuphead">${t('cup_n', { n: i + 1 })}</div>
+    h += `<div class="card cupcard" style="border-top-color:${cupColor(i)}"><div class="cuphead">${t('cup_n', { n: i + 1 })}</div>
       <label class="f">${t('f_name')}</label><input type="text" list="names" placeholder="${esc(t('name_ph'))}" value="${esc(c.name)}" data-bind="cups.${i}.name">
       <label class="f">${t('f_origin')}</label>${chips(`cups.${i}.origin`, opts(ORIGINS, 'v_origins'), c.origin)}
       <label class="f">${t('f_process')}</label>${chips(`cups.${i}.process`, opts(PROCESSES, 'v_processes'), c.process)}
@@ -550,7 +556,7 @@ function stepBar() {
 }
 function cupTitle(c, i) {
   const nm = draft.blind ? '' : ' ' + esc(cupName(c, i));
-  return `<div class="cuphead"><span style="color:${COLORS[i]}">●</span> ${t('cup_no', { n: i + 1 })}${nm}</div>`;
+  return `<div class="cuphead"><span style="color:${cupColor(i)}">●</span> ${t('cup_no', { n: i + 1 })}${nm}</div>`;
 }
 views.cupping = () => {
   const st = STEP_KEYS[draft.step];
@@ -562,7 +568,7 @@ views.cupping = () => {
   } else if (st === 'final') {
     h += `<h1>${t('final_h')}</h1><div class="sub">${t('final_sub')}</div><div class="grid" style="margin-top:12px">`;
     draft.cups.forEach((c, i) => {
-      h += `<div class="card cupcard" style="border-top-color:${COLORS[i]}">${cupTitle(c, i)}
+      h += `<div class="card cupcard" style="border-top-color:${cupColor(i)}">${cupTitle(c, i)}
         <label class="f">${t('f_star')}</label><div class="sub" style="margin-bottom:4px">${t('f_star_d')}</div>${scale(`cups.${i}.final.star`, c.final.star)}
         <label class="f">${t('f_defects')}</label>${chips(`cups.${i}.final.defects`, opts(DEFECTS, 'v_defects'), c.final.defects, { multi: true })}
         <label class="f">${t('f_summary')}</label><textarea data-bind="cups.${i}.final.note" placeholder="${esc(t('summary_ph'))}">${esc(c.final.note)}</textarea></div>`;
@@ -575,7 +581,7 @@ views.cupping = () => {
     h += '<div class="grid" style="margin-top:12px">';
     draft.cups.forEach((c, i) => {
       const s = c.s[st], p = `cups.${i}.s.${st}`;
-      h += `<div class="card cupcard" style="border-top-color:${COLORS[i]}">${cupTitle(c, i)}`;
+      h += `<div class="card cupcard" style="border-top-color:${cupColor(i)}">${cupTitle(c, i)}`;
       if (!taste) {
         h += `<div class="ind"><div class="nm">${t('aroma_int')}</div><div class="ds">${t('aroma_int_desc')}</div>${scale(p + '.aroma', s.aroma)}</div>
           <label class="f">${t('f_tags')}</label>${chips(p + '.tags', opts(AROMA_TAGS, 'v_tags'), s.tags, { multi: true })}`;
@@ -607,7 +613,7 @@ function dailyResultBody(s) {
     <button class="${m === 'main' ? 'on' : ''}" data-act="mode" data-val="main">${t('tab_main')}</button>
     <button class="${m === 'temp' ? 'on' : ''}" data-act="mode" data-val="temp">${t('tab_temp')}</button>
   </div>`;
-  h += `<div class="card cupcard" style="border-top-color:${COLORS[0]}">
+  h += `<div class="card cupcard" style="border-top-color:${cupColor(0)}">
     <div class="cuphead">${esc(cupName(c, 0))}</div>
     <div class="sub">${esc(sub) || '&nbsp;'}</div>`;
   if (m === 'temp') {
@@ -616,7 +622,7 @@ function dailyResultBody(s) {
       legend(stagesToPlot.map(k => [STAGE_COLORS[k], t('temp_' + k)]));
   } else {
     const mv = mainVals(c, true);
-    h += radar([{ color: COLORS[0], values: mv }], DAILY_IND_KEYS);
+    h += radar([{ color: cupColor(0), values: mv }], DAILY_IND_KEYS);
     h += `<div class="sub" style="margin-top:6px;text-align:center">${DAILY_IND_KEYS.map((k, j) => `${esc(indName(k))} ${fmt(mv[j])}`).join(' · ')}</div>`;
   }
   const stNotes = ['hot', 'warm', 'room'].filter(st => c.s && c.s[st] && c.s[st].note);
@@ -639,13 +645,13 @@ function dailyResultBody(s) {
 
 function cupCard(c, i, mode) {
   const sub = [L('v_origins', c.origin), L('v_processes', c.process), L('v_roasts', c.roast)].filter(Boolean).join(' · ');
-  let h = `<div class="card cupcard" style="border-top-color:${COLORS[i]}"><div class="cuphead">${t('cup_no', { n: i + 1 })} · ${esc(cupName(c, i))}</div><div class="sub">${esc(sub) || '&nbsp;'}</div>`;
+  let h = `<div class="card cupcard" style="border-top-color:${cupColor(i)}"><div class="cuphead">${t('cup_no', { n: i + 1 })} · ${esc(cupName(c, i))}</div><div class="sub">${esc(sub) || '&nbsp;'}</div>`;
   if (mode === 'temp') {
     h += radar(['hot', 'warm', 'room'].map(k => ({ color: STAGE_COLORS[k], values: stageVals(c, k) }))) +
       legend(['hot', 'warm', 'room'].map(k => [STAGE_COLORS[k], t('stage.' + k)]));
   } else {
     const mv = mainVals(c);
-    h += radar([{ color: COLORS[i], values: mv }]);
+    h += radar([{ color: cupColor(i), values: mv }]);
     h += `<div class="sub" style="margin-top:6px">${IND_KEYS.map((k, j) => `${esc(indName(k))} ${fmt(mv[j])}`).join(' · ')}</div>`;
   }
   const keys = ['dry', 'wet', 'hot', 'warm', 'room'];
@@ -659,7 +665,7 @@ function cupCard(c, i, mode) {
 }
 function summaryTable(cups) {
   return `<div class="card scroll"><table><tr><th>${t('th_cup')}</th>${IND_KEYS.map(k => `<th>${esc(indName(k))}</th>`).join('')}<th>${t('th_overall')}</th></tr>${cups.map((c, i) =>
-    `<tr><td><span style="color:${COLORS[i]}">●</span> ${esc(cupName(c, i))}</td>${mainVals(c).map(v => `<td>${fmt(v)}</td>`).join('')}<td>${c.final.star ? stars(c.final.star) : '–'}</td></tr>`).join('')}</table></div>`;
+    `<tr><td><span style="color:${cupColor(i)}">●</span> ${esc(cupName(c, i))}</td>${mainVals(c).map(v => `<td>${fmt(v)}</td>`).join('')}<td>${c.final.star ? stars(c.final.star) : '–'}</td></tr>`).join('')}</table></div>`;
 }
 function sessionMeta(s) {
   if (isDaily(s)) {
@@ -678,7 +684,7 @@ function resultBody(s) {
   const m = state.resultMode;
   let h = `<div class="tabs">${['main', 'temp', 'cmp'].map(k => `<button class="${m === k ? 'on' : ''}" data-act="mode" data-val="${k}">${t('tab_' + k)}</button>`).join('')}</div>`;
   if (m === 'cmp') {
-    h += `<div class="card">${radar(s.cups.map((c, i) => ({ color: COLORS[i], values: mainVals(c) })))}${legend(s.cups.map((c, i) => [COLORS[i], `${i + 1}. ${cupName(c, i)}`]))}</div>` + summaryTable(s.cups);
+    h += `<div class="card">${radar(s.cups.map((c, i) => ({ color: cupColor(i), values: mainVals(c) })))}${legend(s.cups.map((c, i) => [cupColor(i), `${i + 1}. ${cupName(c, i)}`]))}</div>` + summaryTable(s.cups);
   } else {
     h += '<div class="grid">' + s.cups.map((c, i) => cupCard(c, i, m)).join('') + '</div>';
   }
@@ -774,8 +780,13 @@ const inviteLink = code => `${location.origin}/#invite=${code}`;
 views.admin = () => {
   const a = state.admin || { users: [], invites: [] };
   let h = `<div class="row spread"><h1>${t('admin_h')}</h1><button class="btn ghost" data-act="nav" data-view="home">${t('btn_home')}</button></div>
-  <div class="card"><div class="row spread"><h2>${t('invites_h')}</h2><button class="btn" data-act="genInvite">${t('btn_gen_invite')}</button></div>
-    <div class="sub">${t('invite_hint')}</div><div class="scroll"><table style="margin-top:8px"><tr><th>${t('th_code')}</th><th>${t('th_status')}</th><th>${t('th_link')}</th><th></th></tr>`;
+  <div class="card"><div class="row spread"><h2>${t('invites_h')}</h2>
+    <form data-form="invite" class="row" style="gap:8px;margin:0">
+      <input type="text" name="code" maxlength="32" placeholder="${esc(t('invite_custom_ph'))}" style="width:260px">
+      <button class="btn" type="submit">${t('btn_gen_invite')}</button>
+      <div class="formmsg" style="width:100%;margin-top:2px"></div>
+    </form></div>
+    <div class="sub" style="margin-top:6px">${t('invite_hint')}</div><div class="scroll"><table style="margin-top:8px"><tr><th>${t('th_code')}</th><th>${t('th_status')}</th><th>${t('th_link')}</th><th></th></tr>`;
   a.invites.forEach(i => {
     const status = i.revoked ? t('st_revoked') : i.used_at ? t('st_used', { name: i.used_by_name || '?' }) : t('st_unused');
     const usable = !i.revoked && !i.used_at;
@@ -1082,6 +1093,13 @@ const forms = {
     await loaders.shared(); render();
     f = null;
   },
+  invite: async (d, f) => {
+    const code = (d.code || '').trim();
+    const r = await api('POST', '/api/admin/invites', code ? { code } : {});
+    if (f) f.reset();
+    await loaders.admin(); render();
+    copyText(inviteLink(r.code));
+  },
 };
 
 document.addEventListener('click', e => {
@@ -1103,6 +1121,13 @@ document.addEventListener('submit', async e => {
 document.addEventListener('change', e => {
   const el = e.target;
   if (el.dataset && el.dataset.act === 'selCup') actions.selCup(el);
+  if (el.dataset && el.dataset.act === 'customCupCount' && draft) {
+    const n = Math.max(1, Math.min(20, Math.floor(Number(el.value) || 3)));
+    draft.cupCount = n;
+    syncCups(draft);
+    persist();
+    render();
+  }
   if (el.id === 'importFile' && el.files[0]) {
     const r = new FileReader();
     r.onload = async () => {
@@ -1122,6 +1147,20 @@ document.addEventListener('change', e => {
 });
 document.addEventListener('input', e => {
   const el = e.target;
+  if (el.dataset && el.dataset.act === 'customCupCount' && draft) {
+    const raw = el.value.trim();
+    if (!raw) return;
+    const n = Math.max(1, Math.min(20, Math.floor(Number(raw) || 3)));
+    if (n !== draft.cupCount) {
+      draft.cupCount = n;
+      syncCups(draft);
+      persist();
+      render();
+      const inp = $('[data-act="customCupCount"]');
+      if (inp) { inp.focus(); inp.value = raw; }
+    }
+    return;
+  }
   if (!el.dataset || !el.dataset.bind) return;
   const obj = targetObj(el);
   if (!obj) return;
@@ -1163,7 +1202,7 @@ setInterval(tick, 500);
 
 /* ========= Bootstrap & URI Routing ========= */
 function checkUrlIntent() {
-  const m = /^#invite=([A-Za-z0-9]+)/.exec(location.hash);
+  const m = /^#invite=([A-Za-z0-9_-]+)/.exec(location.hash);
   if (m) state.inviteCode = m[1].toUpperCase();
   if (location.pathname.replace(/\/+$/, '') === '/admin' || location.hash === '#admin') {
     state.wantAdmin = true;
