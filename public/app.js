@@ -839,7 +839,7 @@ views.guide = () => t('guide').replace('{table}', indTable(true));
 /* --- Account Settings & Backup --- */
 views.settings = () => {
   const u = state.user;
-  return `<h1>${t('settings_h')}</h1>
+  return `<div class="row spread"><h1>${t('settings_h')}</h1>${u.is_admin ? `<button class="btn ghost" data-act="nav" data-view="admin">${t('nav_admin')} →</button>` : ''}</div>
   <div class="card"><h2>${t('account_h')}</h2><div class="sub">${esc(u.username)}${u.is_admin ? ' · ' + t('role_admin') : ''}</div>
     <form data-form="profile"><label class="f">${t('f_display_short')}</label>
       <div class="row"><input type="text" name="display_name" value="${esc(u.display_name)}" maxlength="32" required style="max-width:280px"><button class="btn" type="submit">${t('btn_save')}</button></div>
@@ -855,12 +855,15 @@ views.settings = () => {
     <div class="sub" style="margin-top:8px">${t('import_note')}</div></div>`;
 };
 
-/* --- Admin Console (accessible via /admin or /#admin) --- */
+/* --- Admin Console (accessible via topbar for super admin, /admin, or /#admin) --- */
 const inviteLink = code => `${location.origin}/#invite=${code}`;
 views.admin = () => {
   const a = state.admin || { users: [], invites: [] };
-  let h = `<div class="row spread"><h1>${t('admin_h')}</h1><button class="btn ghost" data-act="nav" data-view="home">${t('btn_home')}</button></div>
-  <div class="card"><div class="row spread"><h2>${t('invites_h')}</h2>
+  const flash = state.adminMsg || '';
+  state.adminMsg = '';
+  let h = `<div class="row spread"><h1>${t('admin_h')}</h1><button class="btn ghost" data-act="nav" data-view="home">${t('btn_home')}</button></div>`;
+  if (flash) h += `<div class="hint" style="border-left-color:var(--ok);color:var(--ok);font-weight:500">${esc(flash)}</div>`;
+  h += `<div class="card"><div class="row spread"><h2>${t('invites_h')}</h2>
     <form data-form="invite" class="row" style="gap:8px;margin:0">
       <input type="text" name="code" maxlength="32" placeholder="${esc(t('invite_custom_ph'))}" style="width:260px">
       <button class="btn" type="submit">${t('btn_gen_invite')}</button>
@@ -875,15 +878,11 @@ views.admin = () => {
       <td class="nowrap">${usable ? `<button class="btn ghost sm" data-act="copyInvite" data-val="${esc(i.code)}">${t('btn_copy')}</button> <button class="btn ghost sm" data-act="revokeInvite" data-val="${esc(i.code)}">${t('btn_revoke')}</button>` : ''}</td></tr>`;
   });
   h += `</table></div></div>
-  <div class="card"><h2>${t('users_h')}</h2>
-    <div class="sub">${t('admin_add_user_hint')}</div>
-    <form data-form="adminAddUser" class="admin-add-user">
-      <input type="text" name="username" required pattern="[A-Za-z0-9_.\\-]{2,32}" placeholder="${esc(t('admin_user_ph'))}" autocomplete="off">
-      <input type="text" name="display_name" maxlength="32" placeholder="${esc(t('admin_display_ph'))}" autocomplete="off">
-      <input type="password" name="password" required minlength="6" placeholder="${esc(t('admin_pw_ph'))}" autocomplete="new-password">
-      <button class="btn" type="submit">${t('btn_add_user')}</button>
-      <div class="formmsg" style="width:100%;margin-top:2px"></div>
-    </form>
+  <div class="card">
+    <div class="row spread" style="margin-bottom:10px">
+      <div><h2 style="margin:0">${t('users_h')}</h2><div class="sub">${t('admin_add_user_hint')}</div></div>
+      <button class="btn" data-act="nav" data-view="adminAddUser">${t('btn_add_user')}</button>
+    </div>
     <div class="scroll"><table><tr><th>${t('th_user')}</th><th>${t('th_role')}</th><th>${t('th_records')}</th><th></th></tr>`;
   a.users.forEach(u => {
     h += `<tr><td><b>${esc(u.display_name)}</b> <span class="sub">@${esc(u.username)}</span>${u.disabled ? ` <span class="tag bad">${t('st_disabled')}</span>` : ''}</td>
@@ -895,6 +894,25 @@ views.admin = () => {
   return h;
 };
 
+views.adminAddUser = () => {
+  if (!state.user || !state.user.is_admin) return `<p>${t('not_found')}</p>`;
+  return `<div class="authbox card" style="max-width:460px">
+    <div class="row spread" style="margin-bottom:6px">
+      <h1 style="margin:0">${t('add_user_h')}</h1>
+      <button type="button" class="btn ghost sm" data-act="nav" data-view="admin">${t('btn_back')}</button>
+    </div>
+    <div class="sub" style="margin-bottom:10px">${t('admin_add_user_hint')}</div>
+    <form data-form="adminAddUser">
+      ${field(t('f_user'), 'username', 'text', 'autocomplete="off" required autofocus pattern="[A-Za-z0-9_.\\-]{2,32}"')}
+      ${field(t('f_display'), 'display_name', 'text', 'autocomplete="off" maxlength="32"')}
+      ${field(t('f_pw'), 'password', 'password', 'autocomplete="new-password" required minlength="6"')}
+      ${field(t('f_pw2'), 'password2', 'password', 'autocomplete="new-password" required minlength="6"')}
+      <div class="formmsg"></div>
+      <button class="btn big full" type="submit">${t('btn_create_user')}</button>
+    </form>
+  </div>`;
+};
+
 /* ========= Rendering & Navigation ========= */
 function activeNavTab() {
   const v = state.view;
@@ -902,6 +920,7 @@ function activeNavTab() {
   if (v === 'dailyNew') return 'daily';
   if (v === 'setup' || v === 'cupping') return 'cuppingHome';
   if (v === 'boardTopic') return 'board';
+  if (v === 'adminAddUser') return 'admin';
   if (v === 'result') {
     const s = sessions.find(x => x.id === state.resultId);
     return isDaily(s) ? 'daily' : 'cuppingHome';
@@ -918,6 +937,7 @@ function renderTopbar() {
     { v: 'cuppingHome', l: t('nav_cupping') },
   ];
   if (u) mainTabs.push({ v: 'board', l: t('nav_board') });
+  if (u && u.is_admin) mainTabs.push({ v: 'admin', l: t('nav_admin') });
   const navHtml = mainTabs.map(x => `<button data-act="nav" data-view="${x.v}" class="main-tab${active === x.v ? ' on' : ''}">${x.l}</button>`).join('');
   $('#topbar').innerHTML = `<div class="brand" data-act="nav" data-view="home">${t('brand')}</div>
     <nav>${navHtml}</nav>
@@ -930,6 +950,9 @@ function renderTopbar() {
 function render() {
   if (!state.user && !PUBLIC_VIEWS.includes(state.view) && state.view !== 'loading') {
     state.view = state.needsFirstRun ? 'init' : 'login';
+  }
+  if (['admin', 'adminAddUser'].includes(state.view) && (!state.user || !state.user.is_admin)) {
+    state.view = 'home';
   }
   if (['setup', 'cupping'].includes(state.view) && !draft) state.view = 'cuppingHome';
   document.documentElement.lang = HTML_LANG[lang];
@@ -1234,11 +1257,10 @@ const forms = {
     copyText(inviteLink(r.code));
   },
   adminAddUser: async (d, f) => {
+    if (d.password !== d.password2) return showFormMsg(f, t('err.pw_mismatch'), false);
     await api('POST', '/api/admin/users', { username: d.username, display_name: d.display_name, password: d.password, lang });
-    if (f) f.reset();
-    await loaders.admin(); render();
-    const nf = $('form[data-form="adminAddUser"]');
-    if (nf) showFormMsg(nf, t('user_created_ok'), true);
+    state.adminMsg = t('user_created_ok');
+    go('admin');
   },
 };
 

@@ -12,6 +12,9 @@ const db = common.openDb();
 const PORT = Number(process.env.PORT || 3000);
 const PUBLIC_DIR = path.join(__dirname, '..', 'public');
 const PKG_VERSION = JSON.parse(fs.readFileSync(path.join(__dirname, '..', 'package.json'), 'utf8')).version || '1.0.0';
+const INDEX_HTML = fs.readFileSync(path.join(PUBLIC_DIR, 'index.html'), 'utf8')
+  .replace(/\/(style\.css|i18n\.js|app\.js)(?=")/g, `/$1?v=${encodeURIComponent(PKG_VERSION)}`);
+const DUMMY_PW_HASH = common.hashPw('timing-guard-placeholder');
 const COOKIE = 'cupping_sess';
 const SESSION_MS = 30 * 86400 * 1000;
 const BACKUP_KEEP = Number(process.env.BACKUP_KEEP || 14);
@@ -101,8 +104,10 @@ if (!q.userByName.get(defUser)) {
 }
 
 /* ========= Utilities ========= */
-class HttpError extends Error { constructor(status, code) { super(code); this.status = status; this.code = code; } }
-const fail = (status, code) => { throw new HttpError(status, code); };
+class HttpError extends Error {
+  constructor(status, code, headers = {}) { super(code); this.status = status; this.code = code; this.headers = headers; }
+}
+const fail = (status, code, headers) => { throw new HttpError(status, code, headers); };
 const sha256 = s => crypto.createHash('sha256').update(s).digest('hex');
 const newId = () => crypto.randomBytes(9).toString('base64url');
 const str = (v, max) => (typeof v === 'string' ? v.trim().slice(0, max) : '');
@@ -121,8 +126,21 @@ function parseCookies(req) {
   });
   return out;
 }
+function isTrustedProxyIp(addr) {
+  if (!addr) return false;
+  const ip = addr.replace(/^::ffff:/, '');
+  if (ip === '127.0.0.1' || ip === '::1') return true;
+  if (ip.startsWith('10.') || ip.startsWith('192.168.')) return true;
+  if (/^172\.(1[6-9]|2\d|3[01])\./.test(ip)) return true;
+  if (/^(fc|fd)/i.test(ip)) return true;
+  return false;
+}
 function clientIp(req) {
-  return req.headers['cf-connecting-ip'] || String(req.headers['x-forwarded-for'] || '').split(',')[0].trim() || req.socket.remoteAddress || '';
+  const sockIp = req.socket.remoteAddress || '';
+  if (isTrustedProxyIp(sockIp)) {
+    return req.headers['cf-connecting-ip'] || String(req.headers['x-forwarded-for'] || '').split(',')[0].trim() || sockIp;
+  }
+  return sockIp;
 }
 function isHttps(req) { return req.headers['x-forwarded-proto'] === 'https'; }
 function sessionCookie(req, token, maxAge) {
@@ -131,12 +149,12 @@ function sessionCookie(req, token, maxAge) {
 function publicUser(u) {
   return { id: u.id, username: u.username, display_name: u.display_name, is_admin: !!u.is_admin, lang: u.lang };
 }
-function readBody(req) {
+function readBody(req, maxBytes = 64 * 1024) {
   return new Promise((resolve, reject) => {
     const chunks = []; let size = 0;
     req.on('data', c => {
       size += c.length;
-      if (size > 5 * 1024 * 1024) { reject(new HttpError(413, 'too_large')); req.destroy(); return; }
+      if (size > maxBytes) { reject(new HttpError(413, 'too_large')); req.destroy(); return; }
       chunks.push(c);
     });
     req.on('end', () => {
@@ -163,16 +181,28 @@ function validateNewUser(body) {
   return { username, password, display, lang };
 }
 
-/* Rate limiting: max 10 failed login attempts per IP within 15 minutes */
-const loginFails = new Map();
-function checkRate(ip) {
-  const r = loginFails.get(ip);
-  if (r && r.until > Date.now() && r.count >= 10) fail(429, 'too_many_attempts');
+/* Multi-layer anti-brute-force & API flood rate limiters */
+const AUTH_WINDOW_MS = 15 * 60 * 1000;
+const authFails = new Map(); // Tracks failed login / invite / password checks by IP & username
+const apiHits = new Map();   // Tracks per-IP general & mutating API request rates (60s window)
+
+function checkAuthRate(key, limit = 8) {
+  const r = authFails.get(key);
+  if (r && r.until > Date.now() && r.count >= limit) {
+    fail(429, 'too_many_attempts', { 'Retry-After': '900' });
+  }
 }
-function noteFail(ip) {
-  const r = loginFails.get(ip);
-  if (!r || r.until < Date.now()) loginFails.set(ip, { count: 1, until: Date.now() + 15 * 60 * 1000 });
+function noteAuthFail(key) {
+  const r = authFails.get(key);
+  if (!r || r.until < Date.now()) authFails.set(key, { count: 1, until: Date.now() + AUTH_WINDOW_MS });
   else r.count++;
+}
+function hitApiRate(key, limit, windowMs = 60 * 1000) {
+  const now = Date.now();
+  const r = apiHits.get(key);
+  if (!r || r.until < now) { apiHits.set(key, { count: 1, until: now + windowMs }); return; }
+  r.count++;
+  if (r.count > limit) fail(429, 'too_many_attempts', { 'Retry-After': '60' });
 }
 
 /* Return lightweight summary for shared list items */
@@ -209,8 +239,10 @@ route('GET', '/api/status', () => ({ needsFirstRun: !q.hasAdmin.get(), version: 
 
 // First-run admin setup (restricted to LAN; requests via Cloudflare include cf-connecting-ip)
 route('POST', '/api/init', ({ req, body }) => {
-  if (q.hasAdmin.get()) fail(403, 'already_initialized');
-  if (req.headers['cf-connecting-ip']) fail(403, 'setup_lan_only');
+  const ip = clientIp(req);
+  checkAuthRate(`ip:${ip}`, 8);
+  if (q.hasAdmin.get()) { noteAuthFail(`ip:${ip}`); fail(403, 'already_initialized'); }
+  if (req.headers['cf-connecting-ip']) { noteAuthFail(`ip:${ip}`); fail(403, 'setup_lan_only'); }
   const u = validateNewUser(body);
   const r = q.createUser.get(u.username, u.display, common.hashPw(u.password), 1, u.lang, Date.now());
   const user = q.userById.get(r.id);
@@ -219,18 +251,35 @@ route('POST', '/api/init', ({ req, body }) => {
 
 route('POST', '/api/login', ({ req, body }) => {
   const ip = clientIp(req);
-  checkRate(ip);
-  const u = q.userByName.get(str(body.username, 64));
-  if (!u || !common.checkPw(String(body.password || ''), u.pw_hash)) { noteFail(ip); fail(401, 'invalid_credentials'); }
-  if (u.disabled) fail(403, 'account_disabled');
-  loginFails.delete(ip);
+  const uname = str(body.username, 64).toLowerCase();
+  checkAuthRate(`ip:${ip}`, 8);
+  if (uname) checkAuthRate(`acct:${uname}`, 10);
+  const u = q.userByName.get(uname);
+  // Always run scrypt verification against DUMMY_PW_HASH when user is missing to prevent timing enumeration
+  const pwOk = common.checkPw(String(body.password || ''), u ? u.pw_hash : DUMMY_PW_HASH);
+  if (!u || !pwOk) {
+    noteAuthFail(`ip:${ip}`);
+    if (uname) noteAuthFail(`acct:${uname}`);
+    fail(401, 'invalid_credentials');
+  }
+  if (u.disabled) {
+    noteAuthFail(`ip:${ip}`);
+    fail(403, 'account_disabled');
+  }
+  authFails.delete(`ip:${ip}`);
+  if (uname) authFails.delete(`acct:${uname}`);
   return { status: 200, body: { ok: true, user: publicUser(u) }, headers: login(req, u) };
 });
 
 route('POST', '/api/register', ({ req, body }) => {
+  const ip = clientIp(req);
+  checkAuthRate(`ip:${ip}`, 8);
   const code = str(body.invite, 32).toUpperCase();
   const inv = q.getInvite.get(code);
-  if (!inv || inv.used_by || inv.revoked) fail(400, 'invalid_invite');
+  if (!inv || inv.used_by || inv.revoked) {
+    noteAuthFail(`ip:${ip}`);
+    fail(400, 'invalid_invite');
+  }
   const u = validateNewUser(body);
   let user;
   db.exec('BEGIN');
@@ -240,6 +289,7 @@ route('POST', '/api/register', ({ req, body }) => {
     db.exec('COMMIT');
     user = q.userById.get(r.id);
   } catch (e) { db.exec('ROLLBACK'); throw e; }
+  authFails.delete(`ip:${ip}`);
   return { status: 200, body: { ok: true, user: publicUser(user) }, headers: login(req, user) };
 });
 
@@ -261,10 +311,16 @@ route('POST', '/api/profile', { auth: true }, ({ user, body }) => {
   return { ok: true };
 });
 route('POST', '/api/password', { auth: true }, ({ req, user, body }) => {
-  if (!common.checkPw(String(body.old || ''), user.pw_hash)) fail(400, 'wrong_password');
+  const ip = clientIp(req);
+  checkAuthRate(`ip:${ip}`, 8);
+  if (!common.checkPw(String(body.old || ''), user.pw_hash)) {
+    noteAuthFail(`ip:${ip}`);
+    fail(400, 'wrong_password');
+  }
   if (typeof body.new !== 'string' || body.new.length < 6) fail(400, 'password_too_short');
   q.setPw.run(common.hashPw(body.new), user.id);
   q.delOtherSessions.run(user.id, sha256(parseCookies(req)[COOKIE] || ''));
+  authFails.delete(`ip:${ip}`);
   return { ok: true };
 });
 
@@ -309,7 +365,7 @@ route('POST', '/api/cuppings/:id/share', { auth: true }, ({ user, params, body }
   return { ok: true, shared: on };
 });
 // Import records (compatible with standalone JSON exports)
-route('POST', '/api/import', { auth: true }, ({ user, body }) => {
+route('POST', '/api/import', { auth: true, maxBody: 5 * 1024 * 1024 }, ({ user, body }) => {
   const list = Array.isArray(body) ? body : (body && Array.isArray(body.sessions) ? body.sessions : null);
   if (!list) fail(400, 'bad_request');
   let imported = 0, skipped = 0;
@@ -496,21 +552,36 @@ const MIME = {
 function serveStatic(req, res, urlPath) {
   let rel;
   try { rel = decodeURIComponent(urlPath); } catch (e) { res.writeHead(400); return res.end(); }
-  if (rel === '/' || rel === '' || rel === '/admin' || rel === '/admin/') rel = '/index.html';
+  if (rel === '/' || rel === '' || rel === '/admin' || rel === '/admin/' || rel === '/index.html') {
+    res.writeHead(200, {
+      'Content-Type': MIME['.html'],
+      'Cache-Control': 'no-store, no-cache, must-revalidate',
+    });
+    return res.end(req.method === 'HEAD' ? undefined : INDEX_HTML);
+  }
   const p = path.normalize(path.join(PUBLIC_DIR, rel));
   if (!p.startsWith(PUBLIC_DIR + path.sep)) { res.writeHead(403); return res.end(); }
   fs.stat(p, (err, st) => {
     if (err || !st.isFile()) { res.writeHead(404, { 'Content-Type': 'text/plain' }); return res.end('Not Found'); }
-    res.writeHead(200, { 'Content-Type': MIME[path.extname(p)] || 'application/octet-stream', 'Cache-Control': 'no-cache' });
+    const etag = `"v${PKG_VERSION}-${Math.floor(st.mtimeMs)}"`;
+    if (req.headers['if-none-match'] === etag) { res.writeHead(304); return res.end(); }
+    res.writeHead(200, {
+      'Content-Type': MIME[path.extname(p)] || 'application/octet-stream',
+      'Cache-Control': 'no-cache, must-revalidate',
+      ETag: etag,
+    });
+    if (req.method === 'HEAD') return res.end();
     fs.createReadStream(p).pipe(res);
   });
 }
 
 /* ========= HTTP Server ========= */
+const CSP = "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data:; connect-src 'self'; frame-ancestors 'none'; base-uri 'self'";
 const server = http.createServer(async (req, res) => {
   res.setHeader('X-Content-Type-Options', 'nosniff');
   res.setHeader('Referrer-Policy', 'same-origin');
   res.setHeader('X-Frame-Options', 'DENY');
+  res.setHeader('Content-Security-Policy', CSP);
   const urlPath = (req.url || '/').split('?')[0];
 
   if (!urlPath.startsWith('/api/')) {
@@ -519,6 +590,12 @@ const server = http.createServer(async (req, res) => {
   }
 
   try {
+    const ip = clientIp(req);
+    if (urlPath !== '/api/health') {
+      hitApiRate(`all:${ip}`, 240);
+      if (req.method !== 'GET') hitApiRate(`mut:${ip}`, 60);
+    }
+
     let found = null, params = {};
     for (const r of routes) {
       if (r.method !== req.method) continue;
@@ -532,7 +609,7 @@ const server = http.createServer(async (req, res) => {
       // Basic CSRF protection: reject cross-origin state-changing requests
       const origin = req.headers.origin;
       if (origin) { try { if (new URL(origin).host !== req.headers.host) fail(403, 'forbidden'); } catch (e) { fail(403, 'forbidden'); } }
-      body = await readBody(req);
+      body = await readBody(req, found.opts.maxBody || 64 * 1024);
       if (body === null || typeof body !== 'object') body = {};
     }
 
@@ -548,7 +625,7 @@ const server = http.createServer(async (req, res) => {
     if (out && out.status && out.body) return send(res, out.status, out.body, out.headers);
     send(res, 200, out || { ok: true });
   } catch (e) {
-    if (e instanceof HttpError) return send(res, e.status, { error: e.code });
+    if (e instanceof HttpError) return send(res, e.status, { error: e.code }, e.headers);
     console.error(new Date().toISOString(), req.method, urlPath, e);
     if (!res.headersSent) send(res, 500, { error: 'server_error' });
     else res.end();
@@ -570,8 +647,10 @@ function autoBackup() {
   } catch (e) { console.error('Backup failed:', e); }
 }
 function housekeeping() {
-  q.purgeSessions.run(Date.now());
-  for (const [ip, r] of loginFails) if (r.until < Date.now()) loginFails.delete(ip);
+  const now = Date.now();
+  q.purgeSessions.run(now);
+  for (const [k, r] of authFails) if (r.until < now) authFails.delete(k);
+  for (const [k, r] of apiHits) if (r.until < now) apiHits.delete(k);
 }
 setTimeout(autoBackup, 15 * 1000);
 setInterval(autoBackup, 6 * 3600 * 1000);
