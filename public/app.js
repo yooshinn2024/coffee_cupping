@@ -53,13 +53,14 @@ function t(key, vars) {
 }
 const L = (map, v) => (v ? (window.I18N[lang][map] && window.I18N[lang][map][v]) || (window.I18N.ja[map] && window.I18N.ja[map][v]) || v : '');
 const indName = k => t('ind.' + k + '.n');
-const stars = n => (n ? t('rec_badge', { n }) : '');
+const fmtScore = n => (n == null || n === '' ? '–' : Number(n).toFixed(1));
+const stars = n => (n ? t('rec_badge', { n: fmtScore(n) }) : '');
 function recFull(n) {
   if (!n) return `<span class="sub">${t('no_star')}</span>`;
-  const idx = n <= 3 ? 0 : n <= 6 ? 1 : n <= 8 ? 2 : 3;
+  const idx = n < 4 ? 0 : n < 7 ? 1 : n < 9 ? 2 : 3;
   const tiers = t('rec_tiers');
   const label = Array.isArray(tiers) ? tiers[idx] : '';
-  return `<b>${n} / 10</b>${label ? ` · <span class="sub">${esc(label)}</span>` : ''}`;
+  return `<b>${fmtScore(n)} / 10</b>${label ? ` · <span class="sub">${esc(label)}</span>` : ''}`;
 }
 const cupName = (c, i) => (c && c.name && c.name.trim() ? c.name.trim() : t('coffee_n', { n: (i || 0) + 1 }));
 const fmtTime = ts => new Date(ts).toLocaleString(LOCALE[lang], { year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' });
@@ -74,6 +75,7 @@ const state = {
   view: 'loading', user: null, loading: false, busy: false, langTouched: false,
   resultId: null, resultMode: 'main', sel: [], cmpType: 'cupping', beepedFor: null,
   homeFilter: 'all', community: null, sharedId: null, shared: null, admin: null,
+  boardTopics: null, boardTopicId: null, boardDetail: null, showNewTopic: false,
   inviteCode: '', wantAdmin: false,
 };
 
@@ -211,8 +213,13 @@ function chips(path, options, cur, opts = {}) {
 const opts = (list, map) => list.map(v => ({ v, l: L(map, v) }));
 function scale(path, val, target = '') {
   const tgt = target ? ` data-target="${target}"` : '';
-  return '<div class="dots">' + [1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map(n =>
-    `<button type="button" class="dot${val === n ? ' on' : ''}" data-act="pick" data-num${tgt} data-path="${path}" data-val="${n}">${n}</button>`).join('') + '</div>';
+  const unset = val == null || val === '';
+  const numVal = unset ? 5 : Math.max(1, Math.min(10, Math.round(Number(val) * 10) / 10));
+  return `<div class="slider-row${unset ? ' unset' : ''}">` +
+    `<input type="range" class="score-slider" min="1" max="10" step="0.1" value="${numVal.toFixed(1)}" title="${esc(t('slider_hint'))}" data-score-slider="1"${tgt} data-path="${path}">` +
+    `<span class="score-val">${unset ? '–' : numVal.toFixed(1)}</span>` +
+    `<button type="button" class="score-clear" data-act="clearScore"${tgt} data-path="${path}" title="${esc(t('btn_clear_score'))}"${unset ? ' hidden' : ''}>✕</button>` +
+    `</div>`;
 }
 function indTable(withMeaning, keys = IND_KEYS) {
   return `<table><tr><th>${t('th_ind')}</th>${withMeaning ? `<th>${t('th_meaning')}</th>` : ''}<th>${t('th_1')}</th><th>${t('th_3')}</th><th>${t('th_5')}</th></tr>` +
@@ -655,7 +662,7 @@ function cupCard(c, i, mode) {
     h += `<div class="sub" style="margin-top:6px">${IND_KEYS.map((k, j) => `${esc(indName(k))} ${fmt(mv[j])}`).join(' · ')}</div>`;
   }
   const keys = ['dry', 'wet', 'hot', 'warm', 'room'];
-  h += `<h3>${t('aroma_evo')}</h3><div class="bars">${keys.map(k => { const v = c.s[k].aroma; return `<div><span style="height:${(v || 0) * 5}px"></span>${v == null ? '–' : v}<br>${t('stage_short.' + k)}</div>`; }).join('')}</div>`;
+  h += `<h3>${t('aroma_evo')}</h3><div class="bars">${keys.map(k => { const v = c.s[k].aroma; return `<div><span style="height:${(v || 0) * 5}px"></span>${v == null ? '–' : fmtScore(v)}<br>${t('stage_short.' + k)}</div>`; }).join('')}</div>`;
   h += `<h3>${t('overall')}</h3><div>${recFull(c.final && c.final.star)}</div>`;
   h += (c.final.defects || []).map(d => `<span class="tag${d === '无明显瑕疵' ? '' : ' bad'}">${esc(L('v_defects', d))}</span>`).join('');
   if (c.final.note) h += `<div style="margin-top:6px">“${esc(c.final.note)}”</div>`;
@@ -753,6 +760,79 @@ views.shared = () => {
   return h + '</div>';
 };
 
+/* ========= Tab 4: Members-Only Discussion Board ========= */
+views.board = () => {
+  const list = state.boardTopics || [];
+  let h = `<div class="row spread">
+    <div><h1>${t('board_h')} <span class="badge members-only">${t('members_only_badge')}</span></h1><div class="sub">${t('board_sub')}</div></div>
+    <button class="btn" data-act="toggleNewTopic">${state.showNewTopic ? t('btn_cancel') : t('btn_new_topic')}</button>
+  </div>`;
+  if (state.showNewTopic) {
+    h += `<form class="card" data-form="newTopic">
+      <h2>${t('new_topic_h')}</h2>
+      <label class="f">${t('f_topic_title')}</label>
+      <input type="text" name="title" maxlength="120" placeholder="${esc(t('topic_title_ph'))}" required autofocus>
+      <label class="f">${t('f_topic_body')}</label>
+      <textarea name="body" rows="4" maxlength="4000" placeholder="${esc(t('topic_body_ph'))}" required></textarea>
+      <div class="formmsg"></div>
+      <div class="row" style="justify-content:flex-end;margin-top:10px">
+        <button type="button" class="btn ghost" data-act="toggleNewTopic">${t('btn_cancel')}</button>
+        <button type="submit" class="btn">${t('btn_post_topic')}</button>
+      </div>
+    </form>`;
+  }
+  if (!list.length) return h + `<div class="card sub">${t('no_topics')}</div>`;
+  list.forEach(tp => {
+    h += `<div class="card session topic-card" data-act="openTopic" data-id="${tp.id}">
+      <div class="row spread">
+        <div class="topic-title">${esc(tp.title)}</div>
+        <span class="badge">${t('n_replies', { n: tp.reply_count })}</span>
+      </div>
+      <div class="topic-preview">${esc(tp.body)}</div>
+      <div class="sub" style="margin-top:8px">
+        <b>${esc(tp.author)}</b>${tp.mine ? ` <span class="badge">${t('mine')}</span>` : ''} · ${esc(fmtTime(tp.last_activity_at))}
+      </div>
+    </div>`;
+  });
+  return h;
+};
+
+views.boardTopic = () => {
+  const d = state.boardDetail;
+  if (!d || !d.topic) return `<p>${t('not_found')}</p>`;
+  const tp = d.topic;
+  const replies = d.replies || [];
+  let h = `<div class="row spread">
+    <button class="btn ghost" data-act="nav" data-view="board">${t('btn_back_list')}</button>
+    ${tp.can_delete ? `<button class="btn danger sm" data-act="delBoardPost" data-id="${tp.id}" data-kind="topic">${t('btn_delete')}</button>` : ''}
+  </div>`;
+  h += `<div class="card">
+    <div class="row spread">
+      <h1>${esc(tp.title)}</h1>
+      <span class="badge members-only">${t('members_only_badge')}</span>
+    </div>
+    <div class="sub"><b>${esc(tp.author)}</b>${tp.mine ? ` <span class="badge">${t('mine')}</span>` : ''} · ${esc(fmtTime(tp.created_at))}</div>
+    <div class="topic-body">${esc(tp.body).replace(/\n/g, '<br>')}</div>
+  </div>`;
+  h += `<div class="card"><h2>${t('replies_h')} (${replies.length})</h2>`;
+  if (!replies.length) h += `<div class="sub">${t('no_replies')}</div>`;
+  replies.forEach(r => {
+    h += `<div class="comment">
+      <div class="row spread">
+        <div><b>${esc(r.author)}</b>${r.mine ? ` <span class="badge">${t('mine')}</span>` : ''}</div>
+        <span class="sub">${esc(fmtTime(r.created_at))}${r.can_delete ? ` <button class="linkbtn" data-act="delBoardPost" data-id="${r.id}" data-kind="reply">✕</button>` : ''}</span>
+      </div>
+      <div class="cbody">${esc(r.body).replace(/\n/g, '<br>')}</div>
+    </div>`;
+  });
+  h += `<form data-form="boardReply" style="margin-top:14px">
+    <textarea name="body" rows="3" maxlength="2000" placeholder="${esc(t('reply_ph'))}" required></textarea>
+    <div class="formmsg"></div>
+    <div class="row" style="justify-content:flex-end;margin-top:8px"><button class="btn" type="submit">${t('btn_reply')}</button></div>
+  </form></div>`;
+  return h;
+};
+
 /* --- Reference Guide --- */
 views.guide = () => t('guide').replace('{table}', indTable(true));
 
@@ -795,11 +875,20 @@ views.admin = () => {
       <td class="nowrap">${usable ? `<button class="btn ghost sm" data-act="copyInvite" data-val="${esc(i.code)}">${t('btn_copy')}</button> <button class="btn ghost sm" data-act="revokeInvite" data-val="${esc(i.code)}">${t('btn_revoke')}</button>` : ''}</td></tr>`;
   });
   h += `</table></div></div>
-  <div class="card"><h2>${t('users_h')}</h2><div class="scroll"><table><tr><th>${t('th_user')}</th><th>${t('th_role')}</th><th>${t('th_records')}</th><th></th></tr>`;
+  <div class="card"><h2>${t('users_h')}</h2>
+    <div class="sub">${t('admin_add_user_hint')}</div>
+    <form data-form="adminAddUser" class="admin-add-user">
+      <input type="text" name="username" required pattern="[A-Za-z0-9_.\\-]{2,32}" placeholder="${esc(t('admin_user_ph'))}" autocomplete="off">
+      <input type="text" name="display_name" maxlength="32" placeholder="${esc(t('admin_display_ph'))}" autocomplete="off">
+      <input type="password" name="password" required minlength="6" placeholder="${esc(t('admin_pw_ph'))}" autocomplete="new-password">
+      <button class="btn" type="submit">${t('btn_add_user')}</button>
+      <div class="formmsg" style="width:100%;margin-top:2px"></div>
+    </form>
+    <div class="scroll"><table><tr><th>${t('th_user')}</th><th>${t('th_role')}</th><th>${t('th_records')}</th><th></th></tr>`;
   a.users.forEach(u => {
     h += `<tr><td><b>${esc(u.display_name)}</b> <span class="sub">@${esc(u.username)}</span>${u.disabled ? ` <span class="tag bad">${t('st_disabled')}</span>` : ''}</td>
       <td>${u.is_admin ? t('role_admin') : t('role_user')}</td><td>${u.cupping_count}</td>
-      <td class="nowrap">${u.is_admin ? '' : `<button class="btn ghost sm" data-act="toggleUser" data-id="${u.id}" data-val="${u.disabled ? 0 : 1}">${u.disabled ? t('btn_enable') : t('btn_disable')}</button> <button class="btn ghost sm" data-act="resetPw" data-id="${u.id}">${t('btn_reset_pw')}</button>`}</td></tr>`;
+      <td class="nowrap">${u.is_admin ? '' : `<button class="btn ghost sm" data-act="toggleUser" data-id="${u.id}" data-val="${u.disabled ? 0 : 1}">${u.disabled ? t('btn_enable') : t('btn_disable')}</button> <button class="btn ghost sm" data-act="resetPw" data-id="${u.id}">${t('btn_reset_pw')}</button> <button class="btn danger sm" data-act="delUser" data-id="${u.id}" data-name="${esc(u.display_name || u.username)}">${t('btn_del_user')}</button>`}</td></tr>`;
   });
   h += `</table></div></div>
   <div class="card"><h2>${t('dbbackup_h')}</h2><div class="sub">${t('dbbackup_desc')}</div><a class="btn ghost" style="display:inline-block;margin-top:10px;text-decoration:none" href="/api/admin/backup">${t('btn_dl_db')}</a></div>`;
@@ -812,6 +901,7 @@ function activeNavTab() {
   if (v === 'shared') return 'home';
   if (v === 'dailyNew') return 'daily';
   if (v === 'setup' || v === 'cupping') return 'cuppingHome';
+  if (v === 'boardTopic') return 'board';
   if (v === 'result') {
     const s = sessions.find(x => x.id === state.resultId);
     return isDaily(s) ? 'daily' : 'cuppingHome';
@@ -827,6 +917,7 @@ function renderTopbar() {
     { v: 'daily', l: t('nav_daily') },
     { v: 'cuppingHome', l: t('nav_cupping') },
   ];
+  if (u) mainTabs.push({ v: 'board', l: t('nav_board') });
   const navHtml = mainTabs.map(x => `<button data-act="nav" data-view="${x.v}" class="main-tab${active === x.v ? ' on' : ''}">${x.l}</button>`).join('');
   $('#topbar').innerHTML = `<div class="brand" data-act="nav" data-view="home">${t('brand')}</div>
     <nav>${navHtml}</nav>
@@ -855,6 +946,8 @@ function render() {
 const loaders = {
   home: async () => { state.community = (await api('GET', '/api/shared')).items; },
   shared: async () => { state.shared = await api('GET', '/api/shared/' + encodeURIComponent(state.sharedId)); },
+  board: async () => { state.boardTopics = (await api('GET', '/api/board')).topics; },
+  boardTopic: async () => { state.boardDetail = await api('GET', '/api/board/' + encodeURIComponent(state.boardTopicId)); },
   admin: async () => { state.admin = await api('GET', '/api/admin/overview'); },
 };
 async function go(view) {
@@ -918,6 +1011,7 @@ const actions = {
     await flushDraft();
     await api('POST', '/api/logout').catch(() => {});
     state.user = null; sessions = []; draft = null; state.sel = [];
+    state.boardTopics = null; state.boardDetail = null; state.showNewTopic = false;
     go('home');
   },
   newDaily: () => {
@@ -986,6 +1080,21 @@ const actions = {
     const v = parseVal(el), cur = getPath(obj, el.dataset.path);
     setPath(obj, el.dataset.path, cur === v ? null : v); saveTarget(el); render();
   },
+  clearScore: el => {
+    const obj = targetObj(el);
+    if (!obj) return;
+    setPath(obj, el.dataset.path, null);
+    saveTarget(el);
+    const row = el.closest('.slider-row');
+    if (row) {
+      row.classList.add('unset');
+      const inp = row.querySelector('.score-slider');
+      if (inp) inp.value = '5.0';
+      const badge = row.querySelector('.score-val');
+      if (badge) badge.textContent = '–';
+      el.hidden = true;
+    }
+  },
   start: () => { draft.started = true; draft.step = 0; persist(); go('cupping'); },
   prev: () => { if (draft.step === 0) go('setup'); else { draft.step--; persist(); go('cupping'); } },
   next: () => { draft.step++; persist(); go('cupping'); },
@@ -1033,6 +1142,15 @@ const actions = {
     await api('DELETE', '/api/comments/' + el.dataset.id);
     await loaders.shared(); render();
   },
+  toggleNewTopic: () => { state.showNewTopic = !state.showNewTopic; render(); },
+  openTopic: el => { state.boardTopicId = el.dataset.id; go('boardTopic'); },
+  delBoardPost: async el => {
+    const isTopic = el.dataset.kind === 'topic';
+    if (!confirm(t(isTopic ? 'confirm_del_topic' : 'confirm_del_reply'))) return;
+    const r = await api('DELETE', '/api/board/' + encodeURIComponent(el.dataset.id));
+    if (r.wasTopic) go('board');
+    else { await loaders.boardTopic(); render(); }
+  },
   selCup: el => {
     const k = el.dataset.key, i = state.sel.indexOf(k);
     if (i >= 0) state.sel.splice(i, 1);
@@ -1064,6 +1182,11 @@ const actions = {
     await api('POST', `/api/admin/users/${el.dataset.id}/reset_pw`, { password: pw });
     alert(t('pw_reset_ok'));
   },
+  delUser: async el => {
+    if (!confirm(t('confirm_del_user', { name: el.dataset.name }))) return;
+    await api('DELETE', `/api/admin/users/${encodeURIComponent(el.dataset.id)}`);
+    await loaders.admin(); render();
+  },
 };
 
 const forms = {
@@ -1093,6 +1216,16 @@ const forms = {
     await loaders.shared(); render();
     f = null;
   },
+  newTopic: async d => {
+    const r = await api('POST', '/api/board', { title: d.title, body: d.body });
+    state.showNewTopic = false;
+    state.boardTopicId = r.id;
+    go('boardTopic');
+  },
+  boardReply: async d => {
+    await api('POST', `/api/board/${encodeURIComponent(state.boardTopicId)}/replies`, { body: d.body });
+    await loaders.boardTopic(); render();
+  },
   invite: async (d, f) => {
     const code = (d.code || '').trim();
     const r = await api('POST', '/api/admin/invites', code ? { code } : {});
@@ -1100,9 +1233,37 @@ const forms = {
     await loaders.admin(); render();
     copyText(inviteLink(r.code));
   },
+  adminAddUser: async (d, f) => {
+    await api('POST', '/api/admin/users', { username: d.username, display_name: d.display_name, password: d.password, lang });
+    if (f) f.reset();
+    await loaders.admin(); render();
+    const nf = $('form[data-form="adminAddUser"]');
+    if (nf) showFormMsg(nf, t('user_created_ok'), true);
+  },
 };
 
+function applySliderInput(el) {
+  const obj = targetObj(el);
+  if (!obj) return;
+  const v = Math.max(1, Math.min(10, Math.round(Number(el.value) * 10) / 10));
+  setPath(obj, el.dataset.path, v);
+  saveTarget(el);
+  const row = el.closest('.slider-row');
+  if (row) {
+    row.classList.remove('unset');
+    const badge = row.querySelector('.score-val');
+    if (badge) badge.textContent = v.toFixed(1);
+    const clr = row.querySelector('.score-clear');
+    if (clr) clr.hidden = false;
+  }
+}
+
 document.addEventListener('click', e => {
+  if (e.target && e.target.dataset && e.target.dataset.scoreSlider) {
+    const row = e.target.closest('.slider-row');
+    if (row && row.classList.contains('unset')) applySliderInput(e.target);
+    return;
+  }
   const el = e.target.closest('[data-act]');
   if (!el || el.tagName === 'INPUT') return;
   if (el.tagName === 'A') e.preventDefault();
@@ -1120,6 +1281,7 @@ document.addEventListener('submit', async e => {
 });
 document.addEventListener('change', e => {
   const el = e.target;
+  if (el.dataset && el.dataset.scoreSlider) { applySliderInput(el); return; }
   if (el.dataset && el.dataset.act === 'selCup') actions.selCup(el);
   if (el.dataset && el.dataset.act === 'customCupCount' && draft) {
     const n = Math.max(1, Math.min(20, Math.floor(Number(el.value) || 3)));
@@ -1147,6 +1309,7 @@ document.addEventListener('change', e => {
 });
 document.addEventListener('input', e => {
   const el = e.target;
+  if (el.dataset && el.dataset.scoreSlider) { applySliderInput(el); return; }
   if (el.dataset && el.dataset.act === 'customCupCount' && draft) {
     const raw = el.value.trim();
     if (!raw) return;

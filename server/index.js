@@ -30,6 +30,7 @@ const q = {
   setDisplay: db.prepare('UPDATE users SET display_name = ? WHERE id = ?'),
   setPw: db.prepare('UPDATE users SET pw_hash = ? WHERE id = ?'),
   setDisabled: db.prepare('UPDATE users SET disabled = ? WHERE id = ? AND is_admin = 0'),
+  delUser: db.prepare('DELETE FROM users WHERE id = ? AND is_admin = 0'),
 
   createSession: db.prepare('INSERT INTO auth_sessions(token_hash, user_id, expires_at) VALUES(?, ?, ?)'),
   delSession: db.prepare('DELETE FROM auth_sessions WHERE token_hash = ?'),
@@ -72,6 +73,24 @@ const q = {
   commentById: db.prepare(`SELECT m.*, c.user_id AS owner_id FROM comments m
     JOIN cuppings c ON c.id = m.cupping_id WHERE m.id = ?`),
   delComment: db.prepare('DELETE FROM comments WHERE id = ?'),
+
+  listTopics: db.prepare(`SELECT p.id, p.title, p.body, p.created_at, p.user_id, u.display_name AS author,
+    (SELECT COUNT(*) FROM board_posts r JOIN users ru ON ru.id = r.user_id WHERE r.parent_id = p.id AND ru.disabled = 0) AS reply_count,
+    COALESCE((SELECT MAX(r.created_at) FROM board_posts r JOIN users ru ON ru.id = r.user_id WHERE r.parent_id = p.id AND ru.disabled = 0), p.created_at) AS last_activity_at
+    FROM board_posts p JOIN users u ON u.id = p.user_id
+    WHERE p.parent_id IS NULL AND u.disabled = 0
+    ORDER BY last_activity_at DESC LIMIT 200`),
+  topicById: db.prepare(`SELECT p.id, p.title, p.body, p.created_at, p.user_id, u.display_name AS author
+    FROM board_posts p JOIN users u ON u.id = p.user_id
+    WHERE p.id = ? AND p.parent_id IS NULL AND u.disabled = 0`),
+  topicReplies: db.prepare(`SELECT r.id, r.body, r.created_at, r.user_id, u.display_name AS author
+    FROM board_posts r JOIN users u ON u.id = r.user_id
+    WHERE r.parent_id = ? AND u.disabled = 0 ORDER BY r.created_at ASC`),
+  insertBoardPost: db.prepare(`INSERT INTO board_posts(user_id, parent_id, title, body, created_at)
+    VALUES(?, ?, ?, ?, ?) RETURNING id`),
+  boardPostById: db.prepare(`SELECT p.*, tp.user_id AS topic_owner_id FROM board_posts p
+    LEFT JOIN board_posts tp ON tp.id = p.parent_id WHERE p.id = ?`),
+  delBoardPost: db.prepare('DELETE FROM board_posts WHERE id = ?'),
 };
 
 const defUser = (process.env.ADMIN_USER || 'admin').trim();
@@ -361,8 +380,70 @@ route('DELETE', '/api/comments/:id', { auth: true }, ({ user, params }) => {
   return { ok: true };
 });
 
+// Members-only discussion board (strictly restricted to authenticated members)
+route('GET', '/api/board', { auth: true }, ({ user }) => ({
+  topics: q.listTopics.all().map(r => ({
+    id: r.id, title: r.title, body: r.body, created_at: r.created_at,
+    last_activity_at: r.last_activity_at, reply_count: r.reply_count,
+    author: r.author, mine: r.user_id === user.id,
+    can_delete: r.user_id === user.id || !!user.is_admin,
+  })),
+}));
+route('POST', '/api/board', { auth: true }, ({ user, body }) => {
+  const title = str(body.title, 120);
+  const text = str(body.body, 4000);
+  if (!title || !text) fail(400, 'empty_post');
+  const r = q.insertBoardPost.get(user.id, null, title, text, Date.now());
+  return { ok: true, id: r.id };
+});
+route('GET', '/api/board/:id', { auth: true }, ({ user, params }) => {
+  const tp = q.topicById.get(Number(params.id));
+  if (!tp) fail(404, 'not_found');
+  return {
+    topic: {
+      id: tp.id, title: tp.title, body: tp.body, created_at: tp.created_at,
+      author: tp.author, mine: tp.user_id === user.id,
+      can_delete: tp.user_id === user.id || !!user.is_admin,
+    },
+    replies: q.topicReplies.all(tp.id).map(r => ({
+      id: r.id, body: r.body, created_at: r.created_at,
+      author: r.author, mine: r.user_id === user.id,
+      can_delete: r.user_id === user.id || tp.user_id === user.id || !!user.is_admin,
+    })),
+  };
+});
+route('POST', '/api/board/:id/replies', { auth: true }, ({ user, params, body }) => {
+  const tp = q.topicById.get(Number(params.id));
+  if (!tp) fail(404, 'not_found');
+  const text = str(body.body, 2000);
+  if (!text) fail(400, 'empty_comment');
+  const r = q.insertBoardPost.get(user.id, tp.id, '', text, Date.now());
+  return { ok: true, id: r.id };
+});
+route('DELETE', '/api/board/:id', { auth: true }, ({ user, params }) => {
+  const p = q.boardPostById.get(Number(params.id));
+  if (!p) fail(404, 'not_found');
+  if (p.user_id !== user.id && p.topic_owner_id !== user.id && !user.is_admin) fail(403, 'forbidden');
+  q.delBoardPost.run(p.id);
+  return { ok: true, wasTopic: p.parent_id == null };
+});
+
 // Admin endpoints
 route('GET', '/api/admin/overview', { admin: true }, () => ({ users: q.listUsers.all(), invites: q.listInvites.all() }));
+route('POST', '/api/admin/users', { admin: true }, ({ body }) => {
+  const u = validateNewUser(body);
+  const r = q.createUser.get(u.username, u.display, common.hashPw(u.password), 0, u.lang, Date.now());
+  return { ok: true, id: r.id };
+});
+route('DELETE', '/api/admin/users/:id', { admin: true }, ({ user, params }) => {
+  const id = Number(params.id);
+  if (!id || id === user.id) fail(400, 'bad_request');
+  const target = q.userById.get(id);
+  if (!target) fail(404, 'not_found');
+  if (target.is_admin) fail(403, 'cannot_delete_admin');
+  q.delUser.run(id);
+  return { ok: true };
+});
 route('POST', '/api/admin/invites', { admin: true }, ({ user, body }) => {
   const custom = body && typeof body.code === 'string' ? body.code.trim().toUpperCase() : '';
   let code = '';

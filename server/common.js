@@ -71,6 +71,14 @@ function openDb() {
       body TEXT NOT NULL,
       created_at INTEGER NOT NULL);
     CREATE INDEX IF NOT EXISTS idx_comments_cupping ON comments(cupping_id, created_at);
+    CREATE TABLE IF NOT EXISTS board_posts(
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+      parent_id INTEGER REFERENCES board_posts(id) ON DELETE CASCADE,
+      title TEXT NOT NULL DEFAULT '',
+      body TEXT NOT NULL,
+      created_at INTEGER NOT NULL);
+    CREATE INDEX IF NOT EXISTS idx_board_parent_created ON board_posts(parent_id, created_at DESC);
   `);
   return db;
 }
