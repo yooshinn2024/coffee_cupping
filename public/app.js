@@ -25,6 +25,19 @@ const DAILY_RATIOS = [
 ];
 const BREW_TIMES = ['1:30', '2:00', '2:15', '2:30', '3:00'];
 const STEP_KEYS = ['dry', 'pour', 'wet', 'hot', 'warm', 'room', 'final'];
+const BASE_SCORES = [2.0, 4.0, 6.0, 7.5, 9.0];
+const REL_DELTAS = [-1.5, -0.7, 0, 0.7, 1.5];
+const STAR_SCORES = [2.5, 5.0, 7.2, 8.5, 9.5];
+const FLAVOR_GROUPS = {
+  fruity: ['花香', '水果'],
+  sweet: ['坚果巧克力', '焦糖烘烤'],
+  roasty: ['香料', '泥土木质', '其他'],
+};
+const THEMES = [
+  { k: 'roastery', c: '#7c4a2d', key: 'theme_roastery' },
+  { k: 'moss', c: '#3f624d', key: 'theme_moss' },
+  { k: 'nordic', c: '#2b6284', key: 'theme_nordic' },
+];
 const LANG_NAMES = { ja: '日本語', zh: '中文', en: 'EN' };
 const HTML_LANG = { ja: 'ja', zh: 'zh-CN', en: 'en' };
 const LOCALE = { ja: 'ja-JP', zh: 'zh-CN', en: 'en-US' };
@@ -41,9 +54,13 @@ const mmss = ms => { const s = Math.max(0, Math.floor(ms / 1000)); return String
 const today = () => new Date().toLocaleDateString('sv-SE');
 const isDaily = s => s && s.type === 'daily';
 
-/* ========= Internationalization ========= */
+/* ========= Internationalization, Theme & Mode ========= */
 let lang = localStorage.getItem('cupping.lang');
 if (!window.I18N[lang]) lang = 'ja'; // Default language: Japanese
+let evalMode = localStorage.getItem('cupping.evalMode') === 'advanced' ? 'advanced' : 'beginner';
+let theme = localStorage.getItem('cupping.theme') || 'roastery';
+if (!THEMES.some(x => x.k === theme)) theme = 'roastery';
+document.documentElement.dataset.theme = theme;
 function t(key, vars) {
   let s = getPath(window.I18N[lang], key);
   if (s == null) s = getPath(window.I18N.ja, key);
@@ -76,6 +93,7 @@ const state = {
   resultId: null, resultMode: 'main', sel: [], cmpType: 'cupping', beepedFor: null,
   homeFilter: 'all', community: null, sharedId: null, shared: null, admin: null,
   boardTopics: null, boardTopicId: null, boardDetail: null, showNewTopic: false,
+  qaIdxMap: {}, flavorCat: '',
   inviteCode: '', wantAdmin: false,
 };
 
@@ -215,11 +233,136 @@ function scale(path, val, target = '') {
   const tgt = target ? ` data-target="${target}"` : '';
   const unset = val == null || val === '';
   const numVal = unset ? 5 : Math.max(1, Math.min(10, Math.round(Number(val) * 10) / 10));
+  const pct = unset ? 0 : ((numVal - 1) / 9) * 100;
   return `<div class="slider-row${unset ? ' unset' : ''}">` +
-    `<input type="range" class="score-slider" min="1" max="10" step="0.1" value="${numVal.toFixed(1)}" title="${esc(t('slider_hint'))}" data-score-slider="1"${tgt} data-path="${path}">` +
+    `<button type="button" class="score-step" data-act="stepScore" data-delta="-0.1"${tgt} data-path="${path}" aria-label="-0.1">−</button>` +
+    `<input type="range" class="score-slider" min="1" max="10" step="0.1" value="${numVal.toFixed(1)}" style="--pct:${pct.toFixed(1)}%" title="${esc(t('slider_hint'))}" data-score-slider="1"${tgt} data-path="${path}">` +
+    `<button type="button" class="score-step" data-act="stepScore" data-delta="0.1"${tgt} data-path="${path}" aria-label="+0.1">+</button>` +
     `<span class="score-val">${unset ? '–' : numVal.toFixed(1)}</span>` +
     `<button type="button" class="score-clear" data-act="clearScore"${tgt} data-path="${path}" title="${esc(t('btn_clear_score'))}"${unset ? ' hidden' : ''}>✕</button>` +
     `</div>`;
+}
+function renderModeSwitch() {
+  return `<div class="mode-switch">` +
+    `<button type="button" class="mode-btn${evalMode === 'beginner' ? ' on' : ''}" data-act="setEvalMode" data-val="beginner">${t('mode_beginner')}</button>` +
+    `<button type="button" class="mode-btn${evalMode === 'advanced' ? ' on' : ''}" data-act="setEvalMode" data-val="advanced">${t('mode_advanced')}</button>` +
+    `</div>` +
+    (evalMode === 'beginner' ? `<div class="sub" style="margin:-4px 0 12px">${t('mode_beginner_desc')}</div>` : '');
+}
+function getBaselineRef(cups, cupIdx, st, key) {
+  const c = cups[cupIdx];
+  const prevMap = { wet: ['dry'], warm: ['hot'], room: ['warm', 'hot'] };
+  const prevStages = prevMap[st] || [];
+  for (const ps of prevStages) {
+    const pv = c && c.s && c.s[ps] ? c.s[ps][key] : null;
+    if (typeof pv === 'number') return { kind: 'temp', stage: ps, score: pv };
+  }
+  if (cupIdx > 0 && cups[0] && cups[0].s && cups[0].s[st]) {
+    const cv = cups[0].s[st][key];
+    if (typeof cv === 'number') return { kind: 'cup', cupIdx: 0, score: cv };
+  }
+  return null;
+}
+function renderBeginnerStage(cups, cupIdx, st, keys, target = '') {
+  const cup = cups[cupIdx];
+  const s = cup.s[st];
+  const tgt = target ? ` data-target="${target}"` : '';
+  const mapKey = `${target || 'cup'}:${st}:${cupIdx}`;
+  let idx = Number(state.qaIdxMap[mapKey] || 0);
+  if (idx < 0 || idx >= keys.length) idx = 0;
+  const k = keys[idx];
+  const curVal = s[k];
+  const p = `cups.${cupIdx}.s.${st}.${k}`;
+  const ref = getBaselineRef(cups, cupIdx, st, k);
+  const rawLabels = ref ? t('qa_rel_opts.' + k) : t('qa_base_opts.' + k);
+  const labels = Array.isArray(rawLabels) ? rawLabels : [];
+  const scores = ref
+    ? REL_DELTAS.map(d => Math.max(1, Math.min(10, Math.round((ref.score + d) * 10) / 10)))
+    : BASE_SCORES;
+  const savedChoice = state.qaChoiceMap && state.qaChoiceMap[`${mapKey}:${k}`];
+  let activeOpt = -1;
+  if (typeof curVal === 'number') {
+    if (typeof savedChoice === 'number' && scores[savedChoice] != null && Math.abs(scores[savedChoice] - curVal) < 0.05) {
+      activeOpt = savedChoice;
+    } else if (ref && Math.abs(scores[2] - curVal) < 0.05) {
+      activeOpt = 2;
+    } else {
+      activeOpt = scores.findIndex(sv => Math.abs(sv - curVal) < 0.05);
+    }
+  }
+  let h = `<div class="qa-box">`;
+  if (keys.length > 1) {
+    h += `<div class="qa-prog">` + keys.map((qk, i) => {
+      const sv = s[qk];
+      const has = typeof sv === 'number';
+      return `<button type="button" class="qa-pill${i === idx ? ' on' : has ? ' done' : ''}" data-act="qaJump" data-map="${mapKey}" data-idx="${i}">${esc(indName(qk))}<span class="qa-pill-val">${has ? ' ' + sv.toFixed(1) : ''}</span></button>`;
+    }).join('') + `</div>`;
+  }
+  h += `<div class="qa-q">${keys.length > 1 ? `${idx + 1}/${keys.length} · ` : ''}${esc(t('qa_base_q.' + k))}</div>`;
+  if (ref) {
+    const anchorText = ref.kind === 'temp'
+      ? t('qa_anchor_temp', { prevStage: t('stage_short.' + ref.stage), score: ref.score.toFixed(1) })
+      : t('qa_anchor_cup', { score: ref.score.toFixed(1) });
+    h += `<div class="qa-anchor">${esc(anchorText)}</div>`;
+  }
+  h += `<div class="qa-opts">` + labels.map((lbl, oi) => {
+    const sv = scores[oi];
+    return `<button type="button" class="qa-opt${activeOpt === oi ? ' on' : ''}" data-act="qaPick"${tgt} data-path="${p}" data-val="${sv.toFixed(1)}" data-optkey="${mapKey}:${k}" data-optidx="${oi}">` +
+      `<span>${esc(lbl)}</span><span class="qa-tag-val">${sv.toFixed(1)}</span></button>`;
+  }).join('') + `</div>`;
+
+  // Hoffmann pleasant-vs-harsh follow-up check on intense acidity or bitterness
+  if ((k === 'acid' || k === 'bitter') && typeof curVal === 'number' && curVal >= 7) {
+    const diagTag = k === 'acid' ? '尖酸' : '焦苦';
+    const isBad = Array.isArray(cup.diag) && cup.diag.includes(diagTag);
+    const hoffKey = `${target || 'cup'}:${cupIdx}:${st}:${k}`;
+    const isGood = !isBad && state.hoffPick && state.hoffPick[hoffKey] === 'good';
+    h += `<div class="qa-followup"><div style="font-weight:600;margin-bottom:6px">${esc(t(k === 'acid' ? 'hoff_acid_q' : 'hoff_bitter_q'))}</div>` +
+      `<div class="qa-opts">` +
+      `<button type="button" class="qa-opt${isGood ? ' on' : ''}" data-act="hoffDiag"${tgt} data-cup="${cupIdx}" data-st="${st}" data-ind="${k}" data-kind="good" data-diag="${diagTag}"><span>${esc(t(k === 'acid' ? 'hoff_acid_good' : 'hoff_bitter_good'))}</span></button>` +
+      `<button type="button" class="qa-opt${isBad ? ' on' : ''}" data-act="hoffDiag"${tgt} data-cup="${cupIdx}" data-st="${st}" data-ind="${k}" data-kind="bad" data-diag="${diagTag}"><span>${esc(t(k === 'acid' ? 'hoff_acid_bad' : 'hoff_bitter_bad'))}</span></button>` +
+      `</div>` +
+      (isBad ? `<div class="sub" style="margin-top:6px">${esc(L('diag_tips', diagTag))}</div>` : '') +
+      `</div>`;
+  }
+
+  h += `<div class="qa-cur-label sub" style="margin-top:10px">${esc(t('qa_cur_score', { score: curVal == null ? '–' : Number(curVal).toFixed(1) }))}</div>`;
+  h += scale(p, curVal, target);
+  if (keys.length > 1) {
+    h += `<div class="qa-nav">` +
+      `<button type="button" class="btn ghost sm" data-act="qaJump" data-map="${mapKey}" data-idx="${idx - 1}"${idx <= 0 ? ' disabled' : ''}>${t('qa_prev_q')}</button>` +
+      `<span class="sub">${idx + 1} / ${keys.length}</span>` +
+      `<button type="button" class="btn sm" data-act="qaJump" data-map="${mapKey}" data-idx="${idx + 1}"${idx >= keys.length - 1 ? ' disabled' : ''}>${t('qa_next_q')}</button>` +
+      `</div>`;
+  }
+  h += `</div>`;
+  return h;
+}
+function renderFlavorPicker(path, tags, target = '') {
+  const cur = Array.isArray(tags) ? tags : [];
+  const activeCat = state.flavorCat && FLAVOR_GROUPS[state.flavorCat] ? state.flavorCat : '';
+  const cats = Object.keys(FLAVOR_GROUPS);
+  const shown = activeCat
+    ? [...FLAVOR_GROUPS[activeCat], ...cur.filter(x => !FLAVOR_GROUPS[activeCat].includes(x))]
+    : cur;
+  let h = `<div class="sub" style="margin:4px 0 4px">${esc(t('hoff_flavor_h'))}</div>` +
+    `<div class="flavor-tree">` + cats.map(cat =>
+      `<button type="button" class="flavor-cat${activeCat === cat ? ' on' : ''}" data-act="setFlavorCat" data-val="${cat}">${esc(t('hoff_cat_' + cat))}</button>`
+    ).join('') + `</div>`;
+  if (shown.length) {
+    h += `<div style="margin-top:6px">${chips(path, opts(shown, 'v_tags'), cur, { multi: true, target })}</div>`;
+  }
+  return h;
+}
+function renderBeginnerStar(path, val, target = '') {
+  const list = t('hoff_star_opts');
+  const tgt = target ? ` data-target="${target}"` : '';
+  return `<div class="qa-opts" style="margin:6px 0 8px">` +
+    (Array.isArray(list) ? list : []).map((lbl, idx) => {
+      const sv = STAR_SCORES[idx];
+      const on = typeof val === 'number' && Math.abs(val - sv) <= 0.15;
+      return `<button type="button" class="qa-opt${on ? ' on' : ''}" data-act="pickStar"${tgt} data-path="${path}" data-val="${sv.toFixed(1)}"><span>${esc(lbl)}</span></button>`;
+    }).join('') + `</div>`;
 }
 function indTable(withMeaning, keys = IND_KEYS) {
   return `<table><tr><th>${t('th_ind')}</th>${withMeaning ? `<th>${t('th_meaning')}</th>` : ''}<th>${t('th_1')}</th><th>${t('th_3')}</th><th>${t('th_5')}</th></tr>` +
@@ -412,6 +555,7 @@ views.dailyNew = () => {
     <datalist id="names">${names.map(n => `<option value="${esc(n)}">`).join('')}</datalist>`;
 
   h += dailyGuideDetails();
+  h += renderModeSwitch();
 
   // 1. Bean & Brew Recipe
   h += `<div class="card"><h2>${t('sec_bean_brew')}</h2>`;
@@ -455,13 +599,17 @@ views.dailyNew = () => {
     h += `<div class="card temp-card ${st}">
       <div class="cuphead">${t('temp_' + st)}</div>
       <div class="sub" style="margin-bottom:8px">${t('temp_' + st + '_d')}</div>`;
-    DAILY_IND_KEYS.forEach(k => {
-      const a = t('ind.' + k + '.a');
-      h += `<div class="ind compact">
-        <div class="head"><span class="nm">${esc(indName(k))}</span><span class="ds">1–3:${esc(a[0])} · 4–6:${esc(a[1])} · 7–10:${esc(a[2])}</span></div>
-        ${scale(p + '.' + k, s[k], 'daily')}
-      </div>`;
-    });
+    if (evalMode === 'beginner') {
+      h += renderBeginnerStage(d.cups, 0, st, DAILY_IND_KEYS, 'daily');
+    } else {
+      DAILY_IND_KEYS.forEach(k => {
+        const a = t('ind.' + k + '.a');
+        h += `<div class="ind compact">
+          <div class="head"><span class="nm">${esc(indName(k))}</span><span class="ds">1–3:${esc(a[0])} · 4–6:${esc(a[1])} · 7–10:${esc(a[2])}</span></div>
+          ${scale(p + '.' + k, s[k], 'daily')}
+        </div>`;
+      });
+    }
     h += `<label class="f">${t('f_memo')}</label><input type="text" value="${esc(s.note)}" data-bind="${p}.note" data-target="daily" placeholder="${esc(t('summary_ph'))}">
     </div>`;
   });
@@ -469,12 +617,13 @@ views.dailyNew = () => {
 
   // 3. Overall Impression, Diagnosis & Save
   h += `<div class="card"><h2>${t('sec_daily_final')}</h2>
-    <label class="f">${t('f_tags')}</label>${chips('cups.0.tags', opts(AROMA_TAGS, 'v_tags'), c.tags, { multi: true, target: 'daily' })}
+    <label class="f">${t('f_tags')}</label>${evalMode === 'beginner' ? renderFlavorPicker('cups.0.tags', c.tags, 'daily') : chips('cups.0.tags', opts(AROMA_TAGS, 'v_tags'), c.tags, { multi: true, target: 'daily' })}
     <label class="f">${t('f_body_level')}</label>${chips('cups.0.bodyLevel', opts(BODY_LEVELS, 'v_body'), c.bodyLevel, { target: 'daily' })}
     <label class="f">${t('f_diag')}</label>${chips('cups.0.diag', opts(DIAG_TAGS, 'v_diag'), c.diag, { multi: true, target: 'daily' })}
     ${diagTipsBox(c.diag)}
     <label class="f">${t('f_star')}</label>
     <div class="sub" style="margin-bottom:4px">${t('f_star_d')}</div>
+    ${evalMode === 'beginner' ? renderBeginnerStar('cups.0.final.star', c.final.star, 'daily') : ''}
     ${scale('cups.0.final.star', c.final.star, 'daily')}
     <label class="f">${t('f_summary')}</label>
     <textarea data-bind="cups.0.final.note" data-target="daily" placeholder="${esc(t('summary_ph'))}">${esc(c.final.note)}</textarea>
@@ -568,6 +717,7 @@ function cupTitle(c, i) {
 views.cupping = () => {
   const st = STEP_KEYS[draft.step];
   let h = stepBar();
+  if (st !== 'pour') h += renderModeSwitch();
   if (st === 'pour') {
     h += `<h1>${t('pour_h')}</h1><div class="hint">${t('pour_hint', { temp: esc(draft.temp) })}</div>`;
     if (!draft.pourStart) h += `<div style="text-align:center;margin:30px 0"><button class="btn big" data-act="startTimer">${t('btn_poured')}</button></div>`;
@@ -576,7 +726,8 @@ views.cupping = () => {
     h += `<h1>${t('final_h')}</h1><div class="sub">${t('final_sub')}</div><div class="grid" style="margin-top:12px">`;
     draft.cups.forEach((c, i) => {
       h += `<div class="card cupcard" style="border-top-color:${cupColor(i)}">${cupTitle(c, i)}
-        <label class="f">${t('f_star')}</label><div class="sub" style="margin-bottom:4px">${t('f_star_d')}</div>${scale(`cups.${i}.final.star`, c.final.star)}
+        <label class="f">${t('f_star')}</label><div class="sub" style="margin-bottom:4px">${t('f_star_d')}</div>
+        ${evalMode === 'beginner' ? renderBeginnerStar(`cups.${i}.final.star`, c.final.star) : ''}${scale(`cups.${i}.final.star`, c.final.star)}
         <label class="f">${t('f_defects')}</label>${chips(`cups.${i}.final.defects`, opts(DEFECTS, 'v_defects'), c.final.defects, { multi: true })}
         <label class="f">${t('f_summary')}</label><textarea data-bind="cups.${i}.final.note" placeholder="${esc(t('summary_ph'))}">${esc(c.final.note)}</textarea></div>`;
     });
@@ -590,13 +741,22 @@ views.cupping = () => {
       const s = c.s[st], p = `cups.${i}.s.${st}`;
       h += `<div class="card cupcard" style="border-top-color:${cupColor(i)}">${cupTitle(c, i)}`;
       if (!taste) {
-        h += `<div class="ind"><div class="nm">${t('aroma_int')}</div><div class="ds">${t('aroma_int_desc')}</div>${scale(p + '.aroma', s.aroma)}</div>
-          <label class="f">${t('f_tags')}</label>${chips(p + '.tags', opts(AROMA_TAGS, 'v_tags'), s.tags, { multi: true })}`;
+        if (evalMode === 'beginner') {
+          h += renderBeginnerStage(draft.cups, i, st, ['aroma']) +
+            `<label class="f">${t('f_tags')}</label>${renderFlavorPicker(p + '.tags', s.tags)}`;
+        } else {
+          h += `<div class="ind"><div class="nm">${t('aroma_int')}</div><div class="ds">${t('aroma_int_desc')}</div>${scale(p + '.aroma', s.aroma)}</div>
+            <label class="f">${t('f_tags')}</label>${chips(p + '.tags', opts(AROMA_TAGS, 'v_tags'), s.tags, { multi: true })}`;
+        }
       } else {
-        IND_KEYS.forEach(k => {
-          const a = t('ind.' + k + '.a');
-          h += `<div class="ind"><div class="nm">${esc(indName(k))}</div><div class="ds">${esc(t('ind.' + k + '.d'))}<br>1–3:${esc(a[0])} · 4–6:${esc(a[1])} · 7–10:${esc(a[2])}</div>${scale(p + '.' + k, s[k])}</div>`;
-        });
+        if (evalMode === 'beginner') {
+          h += renderBeginnerStage(draft.cups, i, st, IND_KEYS);
+        } else {
+          IND_KEYS.forEach(k => {
+            const a = t('ind.' + k + '.a');
+            h += `<div class="ind"><div class="nm">${esc(indName(k))}</div><div class="ds">${esc(t('ind.' + k + '.d'))}<br>1–3:${esc(a[0])} · 4–6:${esc(a[1])} · 7–10:${esc(a[2])}</div>${scale(p + '.' + k, s[k])}</div>`;
+          });
+        }
         h += `<div class="ind"><div class="nm">${t('f_like')}</div><div class="dots">${['bad', 'ok', 'good'].map(v =>
           `<button class="dot like${s.like === v ? ' on' : ''}" data-act="pick" data-path="${p}.like" data-val="${v}">${L('v_likes', v)}</button>`).join('')}</div></div>`;
       }
@@ -939,9 +1099,13 @@ function renderTopbar() {
   if (u) mainTabs.push({ v: 'board', l: t('nav_board') });
   if (u && u.is_admin) mainTabs.push({ v: 'admin', l: t('nav_admin') });
   const navHtml = mainTabs.map(x => `<button data-act="nav" data-view="${x.v}" class="main-tab${active === x.v ? ' on' : ''}">${x.l}</button>`).join('');
+  const themeHtml = `<div class="theme-dots">${THEMES.map(th =>
+    `<button type="button" class="theme-dot${th.k === theme ? ' on' : ''}" style="background:${th.c}" data-act="setTheme" data-val="${th.k}" title="${esc(t(th.key))}" aria-label="${esc(t(th.key))}"></button>`
+  ).join('')}</div>`;
   $('#topbar').innerHTML = `<div class="brand" data-act="nav" data-view="home">${t('brand')}</div>
     <nav>${navHtml}</nav>
     <div class="right"><div id="elapsed" class="elapsed"></div>
+      ${themeHtml}
       <div class="langs">${Object.keys(LANG_NAMES).map(l => `<button data-act="lang" data-val="${l}" class="${l === lang ? 'on' : ''}">${LANG_NAMES[l]}</button>`).join('')}</div>
       ${u
         ? `<span class="who" data-act="nav" data-view="settings">${esc(u.display_name)} · ${t('nav_settings')}</span><button class="logout" data-act="logout">${t('logout')}</button>`
@@ -1108,11 +1272,13 @@ const actions = {
     if (!obj) return;
     setPath(obj, el.dataset.path, null);
     saveTarget(el);
+    const box = el.closest('.qa-box');
+    if (box) { render(); return; }
     const row = el.closest('.slider-row');
     if (row) {
       row.classList.add('unset');
       const inp = row.querySelector('.score-slider');
-      if (inp) inp.value = '5.0';
+      if (inp) { inp.value = '5.0'; inp.style.setProperty('--pct', '0%'); }
       const badge = row.querySelector('.score-val');
       if (badge) badge.textContent = '–';
       el.hidden = true;
@@ -1210,6 +1376,88 @@ const actions = {
     await api('DELETE', `/api/admin/users/${encodeURIComponent(el.dataset.id)}`);
     await loaders.admin(); render();
   },
+  setTheme: el => {
+    const v = el.dataset.val;
+    if (!THEMES.some(x => x.k === v)) return;
+    theme = v;
+    localStorage.setItem('cupping.theme', v);
+    document.documentElement.dataset.theme = v;
+    renderTopbar();
+  },
+  setEvalMode: el => {
+    evalMode = el.dataset.val === 'advanced' ? 'advanced' : 'beginner';
+    localStorage.setItem('cupping.evalMode', evalMode);
+    render();
+  },
+  stepScore: el => {
+    const obj = targetObj(el);
+    if (!obj) return;
+    const cur = getPath(obj, el.dataset.path);
+    const delta = Number(el.dataset.delta || 0);
+    const base = typeof cur === 'number' ? cur : 5.0;
+    const next = Math.max(1, Math.min(10, Math.round((base + delta) * 10) / 10));
+    const row = el.closest('.slider-row');
+    const inp = row && row.querySelector('.score-slider');
+    if (inp) {
+      inp.value = next.toFixed(1);
+      applySliderInput(inp, true);
+    } else {
+      setPath(obj, el.dataset.path, next);
+      saveTarget(el);
+      render();
+    }
+  },
+  qaJump: el => {
+    const idx = Number(el.dataset.idx);
+    if (Number.isNaN(idx) || idx < 0) return;
+    state.qaIdxMap[el.dataset.map] = idx;
+    render();
+  },
+  qaPick: el => {
+    const obj = targetObj(el);
+    if (!obj) return;
+    const v = Math.max(1, Math.min(10, Math.round(Number(el.dataset.val) * 10) / 10));
+    setPath(obj, el.dataset.path, v);
+    if (el.dataset.optkey) {
+      state.qaChoiceMap = state.qaChoiceMap || {};
+      state.qaChoiceMap[el.dataset.optkey] = Number(el.dataset.optidx);
+    }
+    saveTarget(el);
+    render();
+  },
+  hoffDiag: el => {
+    const obj = targetObj(el);
+    if (!obj) return;
+    const cup = obj.cups && obj.cups[Number(el.dataset.cup)];
+    if (!cup) return;
+    if (!Array.isArray(cup.diag)) cup.diag = [];
+    const tag = el.dataset.diag, kind = el.dataset.kind;
+    const hoffKey = `${el.dataset.target || 'cup'}:${el.dataset.cup}:${el.dataset.st}:${el.dataset.ind}`;
+    state.hoffPick = state.hoffPick || {};
+    const pos = cup.diag.indexOf(tag);
+    if (kind === 'bad') {
+      if (pos >= 0) { cup.diag.splice(pos, 1); delete state.hoffPick[hoffKey]; }
+      else { cup.diag.push(tag); state.hoffPick[hoffKey] = 'bad'; }
+    } else {
+      if (pos >= 0) cup.diag.splice(pos, 1);
+      state.hoffPick[hoffKey] = state.hoffPick[hoffKey] === 'good' ? '' : 'good';
+    }
+    saveTarget(el);
+    render();
+  },
+  setFlavorCat: el => {
+    const v = el.dataset.val;
+    state.flavorCat = state.flavorCat === v ? '' : v;
+    render();
+  },
+  pickStar: el => {
+    const obj = targetObj(el);
+    if (!obj) return;
+    const v = Number(el.dataset.val), cur = getPath(obj, el.dataset.path);
+    setPath(obj, el.dataset.path, cur === v ? null : v);
+    saveTarget(el);
+    render();
+  },
 };
 
 const forms = {
@@ -1264,12 +1512,16 @@ const forms = {
   },
 };
 
-function applySliderInput(el) {
+function applySliderInput(el, commit = false) {
   const obj = targetObj(el);
   if (!obj) return;
   const v = Math.max(1, Math.min(10, Math.round(Number(el.value) * 10) / 10));
+  const pct = ((v - 1) / 9) * 100;
   setPath(obj, el.dataset.path, v);
   saveTarget(el);
+  el.style.setProperty('--pct', pct.toFixed(1) + '%');
+  const box = el.closest('.qa-box');
+  if (commit && box) { render(); return; }
   const row = el.closest('.slider-row');
   if (row) {
     row.classList.remove('unset');
@@ -1277,6 +1529,12 @@ function applySliderInput(el) {
     if (badge) badge.textContent = v.toFixed(1);
     const clr = row.querySelector('.score-clear');
     if (clr) clr.hidden = false;
+  }
+  if (box) {
+    const lbl = box.querySelector('.qa-cur-label');
+    if (lbl) lbl.textContent = t('qa_cur_score', { score: v.toFixed(1) });
+    const pillVal = box.querySelector('.qa-pill.on .qa-pill-val');
+    if (pillVal) pillVal.textContent = ' ' + v.toFixed(1);
   }
 }
 
@@ -1303,7 +1561,7 @@ document.addEventListener('submit', async e => {
 });
 document.addEventListener('change', e => {
   const el = e.target;
-  if (el.dataset && el.dataset.scoreSlider) { applySliderInput(el); return; }
+  if (el.dataset && el.dataset.scoreSlider) { applySliderInput(el, true); return; }
   if (el.dataset && el.dataset.act === 'selCup') actions.selCup(el);
   if (el.dataset && el.dataset.act === 'customCupCount' && draft) {
     const n = Math.max(1, Math.min(20, Math.floor(Number(el.value) || 3)));
