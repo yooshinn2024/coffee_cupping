@@ -93,7 +93,7 @@ const state = {
   resultId: null, resultMode: 'main', sel: [], cmpType: 'cupping', beepedFor: null,
   homeFilter: 'all', community: null, sharedId: null, shared: null, admin: null,
   boardTopics: null, boardTopicId: null, boardDetail: null, showNewTopic: false,
-  qaIdxMap: {}, flavorCat: '',
+  qaIdxMap: {}, flavorCat: '', dailyStage: 'hot', cupIdx: 0,
   inviteCode: '', wantAdmin: false,
 };
 
@@ -307,7 +307,7 @@ function renderBeginnerStage(cups, cupIdx, st, keys, target = '') {
   }
   h += `<div class="qa-opts">` + labels.map((lbl, oi) => {
     const sv = scores[oi];
-    return `<button type="button" class="qa-opt${activeOpt === oi ? ' on' : ''}" data-act="qaPick"${tgt} data-path="${p}" data-val="${sv.toFixed(1)}" data-optkey="${mapKey}:${k}" data-optidx="${oi}">` +
+    return `<button type="button" class="qa-opt${activeOpt === oi ? ' on' : ''}" data-act="qaPick"${tgt} data-path="${p}" data-val="${sv.toFixed(1)}" data-cup="${cupIdx}" data-st="${st}" data-ind="${k}" data-optkey="${mapKey}:${k}" data-optidx="${oi}">` +
       `<span>${esc(lbl)}</span><span class="qa-tag-val">${sv.toFixed(1)}</span></button>`;
   }).join('') + `</div>`;
 
@@ -326,8 +326,6 @@ function renderBeginnerStage(cups, cupIdx, st, keys, target = '') {
       `</div>`;
   }
 
-  h += `<div class="qa-cur-label sub" style="margin-top:10px">${esc(t('qa_cur_score', { score: curVal == null ? '–' : Number(curVal).toFixed(1) }))}</div>`;
-  h += scale(p, curVal, target);
   if (keys.length > 1) {
     h += `<div class="qa-nav">` +
       `<button type="button" class="btn ghost sm" data-act="qaJump" data-map="${mapKey}" data-idx="${idx - 1}"${idx <= 0 ? ' disabled' : ''}>${t('qa_prev_q')}</button>` +
@@ -337,6 +335,27 @@ function renderBeginnerStage(cups, cupIdx, st, keys, target = '') {
   }
   h += `</div>`;
   return h;
+}
+function advanceBeginnerQA(target, st, cupIdx, indKey) {
+  const keys = target === 'daily' ? DAILY_IND_KEYS : (['hot', 'warm', 'room'].includes(st) ? IND_KEYS : ['aroma']);
+  const mapKey = `${target || 'cup'}:${st}:${cupIdx}`;
+  const curIdx = keys.indexOf(indKey);
+  if (curIdx >= 0 && curIdx + 1 < keys.length) {
+    state.qaIdxMap[mapKey] = curIdx + 1;
+    return;
+  }
+  if (target === 'daily') {
+    const order = ['hot', 'warm', 'room', 'final'];
+    const si = order.indexOf(st);
+    if (si >= 0 && si + 1 < order.length) {
+      const nextSt = order[si + 1];
+      state.dailyStage = nextSt;
+      if (nextSt !== 'final') state.qaIdxMap[`daily:${nextSt}:0`] = 0;
+    }
+  } else if (['hot', 'warm', 'room'].includes(st) && draft && cupIdx + 1 < draft.cups.length) {
+    state.cupIdx = cupIdx + 1;
+    state.qaIdxMap[`cup:${st}:${cupIdx + 1}`] = 0;
+  }
 }
 function renderFlavorPicker(path, tags, target = '') {
   const cur = Array.isArray(tags) ? tags : [];
@@ -554,7 +573,7 @@ views.dailyNew = () => {
     <button class="btn ghost" data-act="nav" data-view="daily">${t('btn_back')}</button></div>
     <datalist id="names">${names.map(n => `<option value="${esc(n)}">`).join('')}</datalist>`;
 
-  h += dailyGuideDetails();
+  if (evalMode === 'advanced') h += dailyGuideDetails();
   h += renderModeSwitch();
 
   // 1. Bean & Brew Recipe
@@ -567,7 +586,8 @@ views.dailyNew = () => {
   h += `<div class="row">
       <div><label class="f">${t('f_date')}</label><input type="date" value="${esc(d.date)}" data-bind="date" data-target="daily" style="max-width:180px"></div>
       <div style="flex:1;min-width:220px"><label class="f">${t('f_name')}</label><input type="text" list="names" placeholder="${esc(t('name_ph'))}" value="${esc(c.name)}" data-bind="cups.0.name" data-target="daily"></div>
-    </div>
+    </div>`;
+  const brewExtraHtml = `
     <label class="f">${t('f_origin')}</label>${chips('cups.0.origin', opts(ORIGINS, 'v_origins'), c.origin, { target: 'daily' })}
     <label class="f">${t('f_process')}</label>${chips('cups.0.process', opts(PROCESSES, 'v_processes'), c.process, { target: 'daily' })}
     <label class="f">${t('f_roast')}</label>${chips('cups.0.roast', opts(ROASTS, 'v_roasts'), c.roast, { target: 'daily' })}
@@ -587,44 +607,19 @@ views.dailyNew = () => {
     <div class="row">
       ${chips('brewTime', BREW_TIMES.map(v => ({ v, l: v })), d.brewTime, { target: 'daily' })}
       <input type="text" class="small" placeholder="2:15" value="${esc(d.brewTime)}" data-bind="brewTime" data-target="daily">
-    </div>
-  </div>`;
-
-  // 2. Tasting Across 3 Temperature Stages (1-10)
-  h += `<div class="card"><h2>${t('sec_tasting_3temp')}</h2><div class="sub">${t('tasting_3temp_sub')}</div>
-    <div class="temp-grid">`;
-  ['hot', 'warm', 'room'].forEach(st => {
-    const s = c.s[st];
-    const p = `cups.0.s.${st}`;
-    h += `<div class="card temp-card ${st}">
-      <div class="cuphead">${t('temp_' + st)}</div>
-      <div class="sub" style="margin-bottom:8px">${t('temp_' + st + '_d')}</div>`;
-    if (evalMode === 'beginner') {
-      h += renderBeginnerStage(d.cups, 0, st, DAILY_IND_KEYS, 'daily');
-    } else {
-      DAILY_IND_KEYS.forEach(k => {
-        const a = t('ind.' + k + '.a');
-        h += `<div class="ind compact">
-          <div class="head"><span class="nm">${esc(indName(k))}</span><span class="ds">1–3:${esc(a[0])} · 4–6:${esc(a[1])} · 7–10:${esc(a[2])}</span></div>
-          ${scale(p + '.' + k, s[k], 'daily')}
-        </div>`;
-      });
-    }
-    h += `<label class="f">${t('f_memo')}</label><input type="text" value="${esc(s.note)}" data-bind="${p}.note" data-target="daily" placeholder="${esc(t('summary_ph'))}">
     </div>`;
-  });
-  h += `</div></div>`;
+  h += (evalMode === 'beginner'
+    ? `<details class="brew-more"><summary>${t('qa_more_brew')}</summary><div style="margin-top:8px">${brewExtraHtml}</div></details>`
+    : brewExtraHtml) + `</div>`;
 
-  // 3. Overall Impression, Diagnosis & Save
-  h += `<div class="card"><h2>${t('sec_daily_final')}</h2>
-    <label class="f">${t('f_tags')}</label>${evalMode === 'beginner' ? renderFlavorPicker('cups.0.tags', c.tags, 'daily') : chips('cups.0.tags', opts(AROMA_TAGS, 'v_tags'), c.tags, { multi: true, target: 'daily' })}
+  const dailyFinalBody = beginner => `
+    <label class="f">${t('f_tags')}</label>${beginner ? renderFlavorPicker('cups.0.tags', c.tags, 'daily') : chips('cups.0.tags', opts(AROMA_TAGS, 'v_tags'), c.tags, { multi: true, target: 'daily' })}
     <label class="f">${t('f_body_level')}</label>${chips('cups.0.bodyLevel', opts(BODY_LEVELS, 'v_body'), c.bodyLevel, { target: 'daily' })}
     <label class="f">${t('f_diag')}</label>${chips('cups.0.diag', opts(DIAG_TAGS, 'v_diag'), c.diag, { multi: true, target: 'daily' })}
     ${diagTipsBox(c.diag)}
     <label class="f">${t('f_star')}</label>
     <div class="sub" style="margin-bottom:4px">${t('f_star_d')}</div>
-    ${evalMode === 'beginner' ? renderBeginnerStar('cups.0.final.star', c.final.star, 'daily') : ''}
-    ${scale('cups.0.final.star', c.final.star, 'daily')}
+    ${beginner ? renderBeginnerStar('cups.0.final.star', c.final.star, 'daily') : scale('cups.0.final.star', c.final.star, 'daily')}
     <label class="f">${t('f_summary')}</label>
     <textarea data-bind="cups.0.final.note" data-target="daily" placeholder="${esc(t('summary_ph'))}">${esc(c.final.note)}</textarea>
     <div class="row spread" style="margin-top:16px">
@@ -633,8 +628,57 @@ views.dailyNew = () => {
         <button type="button" class="btn ghost big" data-act="saveDaily" data-share="0">${t('btn_save_private')}</button>
         <button type="button" class="btn big" data-act="saveDaily" data-share="1">${t('btn_save_share')}</button>
       </div>
-    </div>
-  </div>`;
+    </div>`;
+
+  if (evalMode === 'beginner') {
+    const curStage = ['hot', 'warm', 'room', 'final'].includes(state.dailyStage) ? state.dailyStage : 'hot';
+    const stageTabs = ['hot', 'warm', 'room', 'final'].map(st => {
+      if (st === 'final') {
+        const lbl = t('sec_daily_final').replace(/^\d+\.\s*/, '');
+        return `<button type="button" class="stage-tab${curStage === 'final' ? ' on' : ''}" data-act="setDailyStage" data-val="final">${esc(lbl)}</button>`;
+      }
+      const doneCnt = DAILY_IND_KEYS.filter(k => typeof c.s[st][k] === 'number').length;
+      const doneCls = doneCnt === DAILY_IND_KEYS.length ? ' done' : '';
+      return `<button type="button" class="stage-tab${curStage === st ? ' on' : doneCls}" data-act="setDailyStage" data-val="${st}">${esc(t('temp_' + st))} (${doneCnt}/${DAILY_IND_KEYS.length})</button>`;
+    }).join('');
+    h += `<div class="card"><div class="stage-tabs">${stageTabs}</div>`;
+    if (curStage === 'final') {
+      h += `<h2>${esc(t('sec_daily_final').replace(/^\d+\.\s*/, ''))}</h2>${dailyFinalBody(true)}`;
+    } else {
+      const s = c.s[curStage];
+      const p = `cups.0.s.${curStage}`;
+      h += `<div class="cuphead">${t('temp_' + curStage)}</div>
+        <div class="sub" style="margin-bottom:8px">${t('temp_' + curStage + '_d')}</div>
+        ${renderBeginnerStage(d.cups, 0, curStage, DAILY_IND_KEYS, 'daily')}
+        <label class="f">${t('f_memo')}</label><input type="text" value="${esc(s.note)}" data-bind="${p}.note" data-target="daily" placeholder="${esc(t('summary_ph'))}">
+        <div class="row" style="justify-content:flex-end;margin-top:12px"><button type="button" class="btn ghost sm" data-act="nextDailyStage">${t('qa_next_stage')}</button></div>`;
+    }
+    h += `</div>`;
+  } else {
+    // 2. Tasting Across 3 Temperature Stages (1-10)
+    h += `<div class="card"><h2>${t('sec_tasting_3temp')}</h2><div class="sub">${t('tasting_3temp_sub')}</div>
+      <div class="temp-grid">`;
+    ['hot', 'warm', 'room'].forEach(st => {
+      const s = c.s[st];
+      const p = `cups.0.s.${st}`;
+      h += `<div class="card temp-card ${st}">
+        <div class="cuphead">${t('temp_' + st)}</div>
+        <div class="sub" style="margin-bottom:8px">${t('temp_' + st + '_d')}</div>`;
+      DAILY_IND_KEYS.forEach(k => {
+        const a = t('ind.' + k + '.a');
+        h += `<div class="ind compact">
+          <div class="head"><span class="nm">${esc(indName(k))}</span><span class="ds">1–3:${esc(a[0])} · 4–6:${esc(a[1])} · 7–10:${esc(a[2])}</span></div>
+          ${scale(p + '.' + k, s[k], 'daily')}
+        </div>`;
+      });
+      h += `<label class="f">${t('f_memo')}</label><input type="text" value="${esc(s.note)}" data-bind="${p}.note" data-target="daily" placeholder="${esc(t('summary_ph'))}">
+      </div>`;
+    });
+    h += `</div></div>`;
+
+    // 3. Overall Impression, Diagnosis & Save
+    h += `<div class="card"><h2>${t('sec_daily_final')}</h2>${dailyFinalBody(false)}</div>`;
+  }
   return h;
 };
 
@@ -723,46 +767,82 @@ views.cupping = () => {
     if (!draft.pourStart) h += `<div style="text-align:center;margin:30px 0"><button class="btn big" data-act="startTimer">${t('btn_poured')}</button></div>`;
     else h += `<div id="countdown" class="big-timer"></div><div style="text-align:center"><button class="btn ghost" data-act="resetTimer">${t('btn_reset_timer')}</button></div>`;
   } else if (st === 'final') {
-    h += `<h1>${t('final_h')}</h1><div class="sub">${t('final_sub')}</div><div class="grid" style="margin-top:12px">`;
-    draft.cups.forEach((c, i) => {
-      h += `<div class="card cupcard" style="border-top-color:${cupColor(i)}">${cupTitle(c, i)}
+    h += `<h1>${t('final_h')}</h1><div class="sub">${t('final_sub')}</div>`;
+    if (evalMode === 'beginner') {
+      const ci = Math.max(0, Math.min(draft.cups.length - 1, Number(state.cupIdx) || 0));
+      if (draft.cups.length > 1) {
+        h += `<div class="stage-tabs" style="margin-top:12px">` + draft.cups.map((cp, i) => {
+          const nm = draft.blind ? '' : ' ' + esc(cupName(cp, i));
+          const doneCls = typeof cp.final.star === 'number' ? ' done' : '';
+          return `<button type="button" class="stage-tab${i === ci ? ' on' : doneCls}" data-act="setCupIdx" data-val="${i}">${t('cup_no', { n: i + 1 })}${nm}</button>`;
+        }).join('') + `</div>`;
+      }
+      const c = draft.cups[ci];
+      h += `<div class="card cupcard" style="border-top-color:${cupColor(ci)};margin-top:12px">${cupTitle(c, ci)}
         <label class="f">${t('f_star')}</label><div class="sub" style="margin-bottom:4px">${t('f_star_d')}</div>
-        ${evalMode === 'beginner' ? renderBeginnerStar(`cups.${i}.final.star`, c.final.star) : ''}${scale(`cups.${i}.final.star`, c.final.star)}
-        <label class="f">${t('f_defects')}</label>${chips(`cups.${i}.final.defects`, opts(DEFECTS, 'v_defects'), c.final.defects, { multi: true })}
-        <label class="f">${t('f_summary')}</label><textarea data-bind="cups.${i}.final.note" placeholder="${esc(t('summary_ph'))}">${esc(c.final.note)}</textarea></div>`;
-    });
-    h += '</div>';
+        ${renderBeginnerStar(`cups.${ci}.final.star`, c.final.star)}
+        <label class="f">${t('f_defects')}</label>${chips(`cups.${ci}.final.defects`, opts(DEFECTS, 'v_defects'), c.final.defects, { multi: true })}
+        <label class="f">${t('f_summary')}</label><textarea data-bind="cups.${ci}.final.note" placeholder="${esc(t('summary_ph'))}">${esc(c.final.note)}</textarea>` +
+        (ci + 1 < draft.cups.length ? `<div class="row" style="justify-content:flex-end;margin-top:10px"><button type="button" class="btn ghost sm" data-act="nextCup">${t('qa_next_cup')}</button></div>` : '') +
+        `</div>`;
+    } else {
+      h += `<div class="grid" style="margin-top:12px">`;
+      draft.cups.forEach((c, i) => {
+        h += `<div class="card cupcard" style="border-top-color:${cupColor(i)}">${cupTitle(c, i)}
+          <label class="f">${t('f_star')}</label><div class="sub" style="margin-bottom:4px">${t('f_star_d')}</div>${scale(`cups.${i}.final.star`, c.final.star)}
+          <label class="f">${t('f_defects')}</label>${chips(`cups.${i}.final.defects`, opts(DEFECTS, 'v_defects'), c.final.defects, { multi: true })}
+          <label class="f">${t('f_summary')}</label><textarea data-bind="cups.${i}.final.note" placeholder="${esc(t('summary_ph'))}">${esc(c.final.note)}</textarea></div>`;
+      });
+      h += '</div>';
+    }
   } else {
     const taste = ['hot', 'warm', 'room'].includes(st);
     h += `<h1>${t('steps.' + st)}：${t('stage.' + st)}</h1><div class="hint">${t('hint.' + st)}</div>`;
-    if (taste) h += `<details class="card"><summary>${t('ref_h')}</summary><div style="margin-top:8px">${indTable(false)}</div></details>`;
-    h += '<div class="grid" style="margin-top:12px">';
-    draft.cups.forEach((c, i) => {
-      const s = c.s[st], p = `cups.${i}.s.${st}`;
-      h += `<div class="card cupcard" style="border-top-color:${cupColor(i)}">${cupTitle(c, i)}`;
+    if (taste && evalMode === 'advanced') h += `<details class="card"><summary>${t('ref_h')}</summary><div style="margin-top:8px">${indTable(false)}</div></details>`;
+    if (evalMode === 'beginner') {
+      const ci = Math.max(0, Math.min(draft.cups.length - 1, Number(state.cupIdx) || 0));
+      if (draft.cups.length > 1) {
+        h += `<div class="stage-tabs" style="margin-top:12px">` + draft.cups.map((cp, i) => {
+          const nm = draft.blind ? '' : ' ' + esc(cupName(cp, i));
+          const reqKeys = taste ? IND_KEYS : ['aroma'];
+          const doneCnt = reqKeys.filter(k => typeof cp.s[st][k] === 'number').length;
+          const doneCls = doneCnt === reqKeys.length ? ' done' : '';
+          return `<button type="button" class="stage-tab${i === ci ? ' on' : doneCls}" data-act="setCupIdx" data-val="${i}">${t('cup_no', { n: i + 1 })}${nm}${taste ? ` (${doneCnt}/${reqKeys.length})` : ''}</button>`;
+        }).join('') + `</div>`;
+      }
+      const c = draft.cups[ci], s = c.s[st], p = `cups.${ci}.s.${st}`;
+      h += `<div class="card cupcard" style="border-top-color:${cupColor(ci)};margin-top:12px">${cupTitle(c, ci)}`;
       if (!taste) {
-        if (evalMode === 'beginner') {
-          h += renderBeginnerStage(draft.cups, i, st, ['aroma']) +
-            `<label class="f">${t('f_tags')}</label>${renderFlavorPicker(p + '.tags', s.tags)}`;
-        } else {
+        h += renderBeginnerStage(draft.cups, ci, st, ['aroma']) +
+          `<label class="f">${t('f_tags')}</label>${renderFlavorPicker(p + '.tags', s.tags)}`;
+      } else {
+        h += renderBeginnerStage(draft.cups, ci, st, IND_KEYS);
+        h += `<div class="ind"><div class="nm">${t('f_like')}</div><div class="dots">${['bad', 'ok', 'good'].map(v =>
+          `<button class="dot like${s.like === v ? ' on' : ''}" data-act="pick" data-path="${p}.like" data-val="${v}">${L('v_likes', v)}</button>`).join('')}</div></div>`;
+      }
+      h += `<label class="f">${t('f_memo')}</label><textarea data-bind="${p}.note">${esc(s.note)}</textarea>` +
+        (ci + 1 < draft.cups.length ? `<div class="row" style="justify-content:flex-end;margin-top:10px"><button type="button" class="btn ghost sm" data-act="nextCup">${t('qa_next_cup')}</button></div>` : '') +
+        `</div>`;
+    } else {
+      h += '<div class="grid" style="margin-top:12px">';
+      draft.cups.forEach((c, i) => {
+        const s = c.s[st], p = `cups.${i}.s.${st}`;
+        h += `<div class="card cupcard" style="border-top-color:${cupColor(i)}">${cupTitle(c, i)}`;
+        if (!taste) {
           h += `<div class="ind"><div class="nm">${t('aroma_int')}</div><div class="ds">${t('aroma_int_desc')}</div>${scale(p + '.aroma', s.aroma)}</div>
             <label class="f">${t('f_tags')}</label>${chips(p + '.tags', opts(AROMA_TAGS, 'v_tags'), s.tags, { multi: true })}`;
-        }
-      } else {
-        if (evalMode === 'beginner') {
-          h += renderBeginnerStage(draft.cups, i, st, IND_KEYS);
         } else {
           IND_KEYS.forEach(k => {
             const a = t('ind.' + k + '.a');
             h += `<div class="ind"><div class="nm">${esc(indName(k))}</div><div class="ds">${esc(t('ind.' + k + '.d'))}<br>1–3:${esc(a[0])} · 4–6:${esc(a[1])} · 7–10:${esc(a[2])}</div>${scale(p + '.' + k, s[k])}</div>`;
           });
+          h += `<div class="ind"><div class="nm">${t('f_like')}</div><div class="dots">${['bad', 'ok', 'good'].map(v =>
+            `<button class="dot like${s.like === v ? ' on' : ''}" data-act="pick" data-path="${p}.like" data-val="${v}">${L('v_likes', v)}</button>`).join('')}</div></div>`;
         }
-        h += `<div class="ind"><div class="nm">${t('f_like')}</div><div class="dots">${['bad', 'ok', 'good'].map(v =>
-          `<button class="dot like${s.like === v ? ' on' : ''}" data-act="pick" data-path="${p}.like" data-val="${v}">${L('v_likes', v)}</button>`).join('')}</div></div>`;
-      }
-      h += `<label class="f">${t('f_memo')}</label><textarea data-bind="${p}.note">${esc(s.note)}</textarea></div>`;
-    });
-    h += '</div>';
+        h += `<label class="f">${t('f_memo')}</label><textarea data-bind="${p}.note">${esc(s.note)}</textarea></div>`;
+      });
+      h += '</div>';
+    }
   }
   const last = draft.step === STEP_KEYS.length - 1;
   h += `<div class="nav"><button class="btn ghost" data-act="prev">${draft.step === 0 ? t('btn_back_setup') : t('btn_prev')}</button>
@@ -1204,6 +1284,7 @@ const actions = {
   newDaily: () => {
     if (!state.user) return go('login');
     if (!dailyDraft) dailyDraft = newDailyDraft();
+    state.dailyStage = 'hot';
     persistDaily();
     go('dailyNew');
   },
@@ -1284,10 +1365,10 @@ const actions = {
       el.hidden = true;
     }
   },
-  start: () => { draft.started = true; draft.step = 0; persist(); go('cupping'); },
-  prev: () => { if (draft.step === 0) go('setup'); else { draft.step--; persist(); go('cupping'); } },
-  next: () => { draft.step++; persist(); go('cupping'); },
-  goto: el => { draft.step = Number(el.dataset.val); persist(); go('cupping'); },
+  start: () => { draft.started = true; draft.step = 0; state.cupIdx = 0; persist(); go('cupping'); },
+  prev: () => { state.cupIdx = 0; if (draft.step === 0) go('setup'); else { draft.step--; persist(); go('cupping'); } },
+  next: () => { draft.step++; state.cupIdx = 0; persist(); go('cupping'); },
+  goto: el => { draft.step = Number(el.dataset.val); state.cupIdx = 0; persist(); go('cupping'); },
   startTimer: () => { draft.pourStart = Date.now(); state.beepedFor = null; persist(); render(); },
   resetTimer: () => { if (confirm(t('confirm_reset_timer'))) { draft.pourStart = Date.now(); state.beepedFor = null; persist(); render(); } },
   finish: async () => {
@@ -1422,17 +1503,25 @@ const actions = {
       state.qaChoiceMap = state.qaChoiceMap || {};
       state.qaChoiceMap[el.dataset.optkey] = Number(el.dataset.optidx);
     }
+    const ind = el.dataset.ind;
+    const st = el.dataset.st;
+    const cupIdx = Number(el.dataset.cup || 0);
+    if (!((ind === 'acid' || ind === 'bitter') && v >= 7)) {
+      advanceBeginnerQA(el.dataset.target || '', st, cupIdx, ind);
+    }
     saveTarget(el);
     render();
   },
   hoffDiag: el => {
     const obj = targetObj(el);
     if (!obj) return;
-    const cup = obj.cups && obj.cups[Number(el.dataset.cup)];
+    const cupIdx = Number(el.dataset.cup || 0);
+    const cup = obj.cups && obj.cups[cupIdx];
     if (!cup) return;
     if (!Array.isArray(cup.diag)) cup.diag = [];
     const tag = el.dataset.diag, kind = el.dataset.kind;
-    const hoffKey = `${el.dataset.target || 'cup'}:${el.dataset.cup}:${el.dataset.st}:${el.dataset.ind}`;
+    const st = el.dataset.st, ind = el.dataset.ind;
+    const hoffKey = `${el.dataset.target || 'cup'}:${cupIdx}:${st}:${ind}`;
     state.hoffPick = state.hoffPick || {};
     const pos = cup.diag.indexOf(tag);
     if (kind === 'bad') {
@@ -1442,8 +1531,25 @@ const actions = {
       if (pos >= 0) cup.diag.splice(pos, 1);
       state.hoffPick[hoffKey] = state.hoffPick[hoffKey] === 'good' ? '' : 'good';
     }
+    advanceBeginnerQA(el.dataset.target || '', st, cupIdx, ind);
     saveTarget(el);
     render();
+  },
+  setDailyStage: el => {
+    const v = el.dataset.val;
+    if (['hot', 'warm', 'room', 'final'].includes(v)) { state.dailyStage = v; render(); }
+  },
+  nextDailyStage: () => {
+    const order = ['hot', 'warm', 'room', 'final'];
+    const i = order.indexOf(state.dailyStage);
+    if (i >= 0 && i + 1 < order.length) { state.dailyStage = order[i + 1]; render(); }
+  },
+  setCupIdx: el => {
+    const i = Number(el.dataset.val);
+    if (!Number.isNaN(i) && draft) { state.cupIdx = Math.max(0, Math.min(draft.cups.length - 1, i)); render(); }
+  },
+  nextCup: () => {
+    if (draft && state.cupIdx + 1 < draft.cups.length) { state.cupIdx++; render(); }
   },
   setFlavorCat: el => {
     const v = el.dataset.val;

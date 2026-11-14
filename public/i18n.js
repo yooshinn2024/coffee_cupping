@@ -431,6 +431,9 @@ window.I18N = {
     hoff_cat_sweet: '🍫 ナッツ・チョコレート・キャラメル系',
     hoff_cat_roasty: '🌾 スパイス・ウッディ・香ばしい系',
     hoff_star_opts: ['🙅 苦手・嫌いな味がある (2.5)', '🤔 飲めるけど普通 (5.0)', '🙂 美味しい！楽しく飲める (7.2)', '😍 とても好き！豆を買いたい (8.5)', '🤩 感動レベル！友達に勧めたい (9.5)'],
+    qa_more_brew: '⚙️ 産地・抽出レシピを詳しく記録する（任意・クリックで展開）',
+    qa_next_stage: '次のステージへ →',
+    qa_next_cup: '次のカップへ →',
   },
 
   zh: {
@@ -863,6 +866,9 @@ window.I18N = {
     hoff_cat_sweet: '🍫 温暖坚果与可可焦糖派',
     hoff_cat_roasty: '🌾 烘焙谷物与木质香料派',
     hoff_star_opts: ['🙅 喝不惯 / 有讨厌的味道 (2.5分)', '🤔 勉强能喝，但不算享受 (5.0分)', '🙂 挺好喝！端给我会开心地喝完 (7.2分)', '😍 很喜欢！会想买豆子自己冲 (8.5分)', '🤩 惊艳神豆！想立刻安利给朋友 (9.5分)'],
+    qa_more_brew: '⚙️ 展开填写产地与冲煮参数（可选）',
+    qa_next_stage: '进入下一阶段 →',
+    qa_next_cup: '切换到下一杯 →',
   },
 
   en: {
@@ -1295,5 +1301,8 @@ window.I18N = {
     hoff_cat_sweet: '🍫 Nutty, Chocolate & Caramel',
     hoff_cat_roasty: '🌾 Roasty, Spice & Woody',
     hoff_star_opts: ['🙅 Not for me / unpleasant notes (2.5)', '🤔 Drinkable, nothing special (5.0)', '🙂 Pretty good! Happy to drink it (7.2)', '😍 Really like it! Would buy beans (8.5)', '🤩 Mind-blowing! Must recommend (9.5)'],
+    qa_more_brew: '⚙️ More Bean & Brew Details (Optional, click to expand)',
+    qa_next_stage: 'Next Stage →',
+    qa_next_cup: 'Next Cup →',
   },
 };
